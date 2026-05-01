@@ -398,6 +398,7 @@ function render(){
   // MORE
   if(s.view==='more'){
     html+=`<div class="st">Admin</div>`;
+    if(isM) html+=renderLS();
     html+=`<div class="cd" style="display:flex;align-items:center;gap:14px;margin-bottom:18px"><div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#FFE0B2,#FF8A65);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#E65100;font-family:'Fredoka'">${u.avatar_initials}</div><div><div style="display:flex;align-items:center;gap:8px"><div style="font-weight:700;font-size:16px;color:#4E342E;font-family:'Fredoka'">${u.display_name}</div>${isM?'<span class="mb">Manager</span>':''}</div><div style="font-size:13px;color:#8D6E63">${u.positions?.join(' / ')||u.location_name}</div></div></div>`;
 
     if(canEdit){
@@ -417,10 +418,11 @@ function render(){
 
       // ===== BUSINESS HOURS =====
       html+=`<div class="st" style="margin-top:22px">🏪 Business Hours</div>`;
-      const bhLocs = [...new Set(s.businessHours.map(h=>h.LOCATION_NAME))];
+      const filteredBH = vLoc==='All' ? s.businessHours : s.businessHours.filter(h=>h.LOCATION_NAME===vLoc);
+      const bhLocs = [...new Set(filteredBH.map(h=>h.LOCATION_NAME))];
       bhLocs.forEach(locName=>{
-        html+=`<div style="font-size:14px;font-weight:700;color:#4E342E;margin-bottom:8px;margin-top:12px">${locName}</div>`;
-        const locHours=s.businessHours.filter(h=>h.LOCATION_NAME===locName).sort((a,b)=>a.DAY_OF_WEEK-b.DAY_OF_WEEK);
+        if(vLoc==='All') html+=`<div style="font-size:14px;font-weight:700;color:#4E342E;margin-bottom:8px;margin-top:12px">${locName}</div>`;
+        const locHours=filteredBH.filter(h=>h.LOCATION_NAME===locName).sort((a,b)=>a.DAY_OF_WEEK-b.DAY_OF_WEEK);
         locHours.forEach(h=>{
           const openT=h.OPEN_TIME||'Closed';const closeT=h.CLOSE_TIME||'';
           html+=`<div class="cd" style="padding:12px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:600;color:${h.IS_OPEN?'#4E342E':'#BCAAA4'}">${h.DAY_NAME}</div></div><div style="display:flex;align-items:center;gap:8px">${h.IS_OPEN?`<span style="font-size:13px;color:#6D4C41">${openT} – ${closeT}</span>`:'<span style="font-size:12px;color:#BCAAA4;font-style:italic">Closed</span>'}<button onclick="setState({showHoursEdit:state.showHoursEdit===${h.HOURS_ID}?null:${h.HOURS_ID}})" style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px">✏️</button></div></div>`;
@@ -448,10 +450,11 @@ function render(){
       }
 
       const rTypeLabels={MAX_CONSECUTIVE_DAYS:'⏱️ Max Days',WEEKLY_HOURS_RANGE:'📊 Hours',WEEKEND_OFF_PER_MONTH:'🗓️ Weekend',SHIFT_START_OFFSET:'🕐 Offset',CUSTOM:'📝 Custom'};
-      s.schedulingRules.forEach(r=>{
+      const filteredRules = vLoc==='All' ? s.schedulingRules : s.schedulingRules.filter(r=>!r.LOCATION_ID||r.LOCATION_NAME===vLoc);
+      filteredRules.forEach(r=>{
         html+=`<div class="cd" style="padding:14px;display:flex;justify-content:space-between"><div><div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#1565C0;background:#E3F2FD;padding:2px 8px;border-radius:8px;font-weight:600">${rTypeLabels[r.RULE_TYPE]||r.RULE_TYPE}</span>${r.USER_NAME?`<span style="font-size:11px;color:#7B1FA2;background:#F3E5F5;padding:2px 8px;border-radius:8px;font-weight:600">${r.USER_NAME}</span>`:''}</div><div style="font-size:14px;font-weight:700;color:#4E342E;margin-top:6px">${r.RULE_NAME}</div>${r.RULE_DESCRIPTION?`<div style="font-size:12px;color:#8D6E63;margin-top:2px">${r.RULE_DESCRIPTION}</div>`:''}<div style="font-size:11px;color:#BCAAA4;margin-top:4px">${r.PARAM_1?'Value: '+r.PARAM_1:''}${r.PARAM_2?' – '+r.PARAM_2:''}</div></div><button onclick="removeRule(${r.RULE_ID})" style="background:none;border:none;font-size:16px;color:#E57373;cursor:pointer;flex-shrink:0">✕</button></div>`;
       });
-      if(s.schedulingRules.length===0) html+=`<div style="text-align:center;padding:20px;color:#BCAAA4;font-size:13px">No rules yet. Add rules to guide the auto-scheduler.</div>`;
+      if(filteredRules.length===0) html+=`<div style="text-align:center;padding:20px;color:#BCAAA4;font-size:13px">No rules yet. Add rules to guide the auto-scheduler.</div>`;
 
       // ===== LOGIN ACTIVITY =====
       html+=`<div style="display:flex;justify-content:space-between;margin-top:22px;margin-bottom:12px"><div class="st" style="margin-bottom:0">👁️ Login Activity</div><button class="btn bs bsm" onclick="loadLoginLog()">Refresh</button></div>`;
