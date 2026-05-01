@@ -1,0 +1,10 @@
+{
+  "name": "Cookie Cutters Staff Schedule",
+  "short_name": "Cookie Cutters",
+  "description": "Staff scheduling app for Cookie Cutters Haircuts for Kids",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF9F0",
+  "theme_color": "#F4511E",
+  "icons": []
+}

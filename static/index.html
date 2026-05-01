@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#F4511E">
+<title>Cookie Cutters - Staff Schedule</title>
+<link rel="manifest" href="/manifest.json">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;500;700&family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:linear-gradient(180deg,#FFF9F0 0%,#FFF 40%);min-height:100vh;max-width:480px;margin:0 auto;-webkit-tap-highlight-color:transparent}
+.hd{background:linear-gradient(135deg,#FF8A65,#FF7043 50%,#F4511E);padding:16px 16px 20px;border-radius:0 0 24px 24px;position:relative;overflow:hidden}
+.hd::before{content:'';position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:rgba(255,255,255,0.1);border-radius:50%}
+.cd{background:#FFF;border-radius:16px;padding:18px;margin-bottom:14px;box-shadow:0 2px 12px rgba(0,0,0,0.06);border:1px solid #F5E6D3}
+.btn{border:none;border-radius:12px;padding:12px 20px;font-family:'DM Sans';font-weight:600;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s}
+.bp{background:linear-gradient(135deg,#FF7043,#F4511E);color:white}
+.bp:active{transform:scale(0.97)}
+.bs{background:#FFF3E0;color:#E65100;border:1px solid #FFB74D}
+.bsm{padding:6px 14px;font-size:12px;border-radius:8px}
+.bap{background:#E8F5E9;color:#2E7D32;border:1px solid #81C784}
+.bdn{background:#FFEBEE;color:#C62828;border:1px solid #E57373}
+.nv{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#FFF;border-top:1px solid #F0E0D0;display:flex;justify-content:space-around;padding:8px 0 env(safe-area-inset-bottom,14px);z-index:100;box-shadow:0 -4px 20px rgba(0,0,0,0.06)}
+.nv button{background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:'DM Sans';font-size:10px;font-weight:500;color:#9E9E9E;padding:4px 8px}
+.nv button.a{color:#F4511E}
+.nv button .ni{font-size:22px}
+.st{font-family:'Fredoka';font-weight:600;font-size:18px;color:#4E342E;margin-bottom:14px}
+.sa{padding:16px 16px 80px}
+.tst{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#4E342E;color:white;padding:12px 24px;border-radius:14px;font-family:'DM Sans';font-size:14px;font-weight:500;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,0.2);animation:sd 0.3s ease}
+@keyframes sd{from{opacity:0;transform:translateX(-50%) translateY(-20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.gw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px 4px}
+.sg{display:grid;grid-template-columns:90px repeat(7,minmax(50px,1fr));min-width:520px;border-radius:14px;overflow:hidden;border:1.5px solid #EDE0D4;background:#FFF;box-shadow:0 2px 16px rgba(0,0,0,0.05)}
+.gc{background:#FAF4ED;padding:10px 6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#BCAAA4;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid #EDE0D4;border-right:1.5px solid #EDE0D4}
+.gdh{padding:8px 2px;text-align:center;border-bottom:1.5px solid #EDE0D4;border-right:1px solid #F5EDE3;background:#FAF4ED}
+.gdh.td{background:#FFF3E0}
+.gdh.cc{background:#FFEBEE}
+.gsc{padding:8px 6px;display:flex;align-items:center;gap:6px;border-bottom:1px solid #F5EDE3;border-right:1.5px solid #EDE0D4;background:#FFFDF9;min-height:56px}
+.gshc{padding:3px 2px;border-bottom:1px solid #F5EDE3;border-right:1px solid #F5EDE3;display:flex;align-items:center;justify-content:center;min-height:56px;cursor:pointer;transition:all 0.15s}
+.gshc:active{background:#FFF3E0}
+.gshc.td{background:#FFFCF5}
+.gshc.ccl{background:#FFF5F5}
+.sp{border-radius:7px;padding:4px 3px;text-align:center;font-size:9px;font-weight:600;line-height:1.3;width:100%;min-height:38px;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:transform 0.15s}
+.sp:active{transform:scale(0.95)}
+.off{font-size:10px;color:#D7CCC8;font-weight:500;font-style:italic}
+.ea{width:100%;height:38px;border:2px dashed #E8D5C4;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#BCAAA4;font-size:16px;cursor:pointer;background:transparent}
+.ea:active{border-color:#FF7043;color:#FF7043;background:#FFF3E0}
+.wn{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.wnb{background:#FFF3E0;border:1px solid #FFE0B2;border-radius:10px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:#E65100;font-family:'DM Sans'}
+.lgd{width:8px;height:8px;border-radius:50%;display:inline-block}
+.mb{background:linear-gradient(135deg,#FFF3E0,#FFE0B2);border:1px solid #FFB74D;border-radius:6px;padding:2px 8px;font-size:9px;font-weight:700;color:#E65100;text-transform:uppercase}
+.eh{background:linear-gradient(135deg,#E3F2FD,#E8EAF6);border:1px solid #BBDEFB;border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;font-size:12px;color:#1565C0;line-height:1.5}
+.hrc{font-size:10px;font-weight:700;color:#E65100;font-family:'Fredoka';text-align:center;padding:4px 2px;border-bottom:1px solid #F5EDE3;border-right:1px solid #F5EDE3;display:flex;align-items:center;justify-content:center;min-height:32px;background:#FFF9F0}
+.hrl{font-size:9px;font-weight:700;color:#8D6E63;text-transform:uppercase;background:#FAF4ED;padding:6px;border-bottom:1px solid #EDE0D4;border-right:1.5px solid #EDE0D4;display:flex;align-items:center;justify-content:center}
+.ct{background:#FFCDD2;color:#C62828;font-size:7px;font-weight:700;border-radius:4px;padding:1px 4px;text-transform:uppercase}
+.bt{background:#FFE0B2;color:#E65100;font-size:7px;font-weight:700;border-radius:4px;padding:1px 4px;text-transform:uppercase}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:white;border-radius:20px;padding:24px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.2);max-height:90vh;overflow-y:auto}
+.ff{width:100%;padding:10px 14px;border-radius:12px;border:1.5px solid #E8D5C4;font-family:'DM Sans';font-size:14px;background:#FFFDF9;color:#4E342E;outline:none}
+.ff:focus{border-color:#FF7043;box-shadow:0 0 0 3px rgba(255,112,67,0.12)}
+.pb{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600}
+.pb-s{background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9}
+.pb-r{background:#F3E5F5;color:#7B1FA2;border:1px solid #CE93D8}
+.pt{padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans';border:1.5px solid #E8D5C4;background:#FFFDF9;color:#6D4C41}
+.pt.on{background:#E3F2FD;color:#1565C0;border-color:#90CAF9}
+.loading{display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:12px}
+.loading h1{font-family:'Fredoka';font-size:24px;color:#F4511E;font-weight:700}
+.loading p{color:#8D6E63;font-size:14px}
+</style>
+</head>
+<body>
+<div id="app"><div class="loading"><h1>Cookie Cutters ✂️</h1><p>Connecting to your schedule...</p></div></div>
+
+<script>
+// ===== CONFIG =====
+const API = window.location.origin; // Same domain as API
+let DEV_USER_ID = new URLSearchParams(window.location.search).get('user') || 102;
+
+const COLORS = ["#FF7043","#42A5F5","#66BB6A","#AB47BC","#FFA726","#EC407A","#26A69A","#5C6BC0","#EF5350","#8D6E63"];
+const getColor = id => COLORS[(Number(id)||0) % COLORS.length];
+
+const TOPTS = [];
+for(let h=6;h<=21;h++) for(let m=0;m<60;m+=10){
+  const hr=h>12?h-12:h===0?12:h;
+  TOPTS.push(`${hr}:${String(m).padStart(2,'0')}${h>=12?'p':'a'}`);
+}
+
+const apiToApp = t => {if(!t)return'';const m=t.match(/(\d+):(\d+)\s*(AM|PM)/i);if(!m)return t;return`${parseInt(m[1])}:${m[2]}${m[3].toLowerCase().charAt(0)}`};
+const appTo24 = t => {const[time,p]=t.split(/(?=[ap])/);let[h,mn]=time.split(':').map(Number);if(p==='p'&&h!==12)h+=12;if(p==='a'&&h===12)h=0;return`${String(h).padStart(2,'0')}:${String(mn||0).padStart(2,'0')}:00`};
+const pT = t => {const[time,p]=t.split(/(?=[ap])/);let[h,m]=time.split(':').map(Number);if(p==='p'&&h!==12)h+=12;if(p==='a'&&h===12)h=0;return h+(m||0)/60};
+const fmtHrs = h => {const hrs=Math.floor(h);const mins=Math.round((h-hrs)*60);return mins>0?`${hrs}h${mins}m`:`${hrs}h`};
+const dk = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const fd = d => d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+const fday = d => d.toLocaleDateString('en-US',{weekday:'short'});
+const wsf = (date,off) => {const d=new Date(date);d.setDate(d.getDate()-d.getDay()+1+off*7);return d};
+const wdays = s => {const a=[];for(let i=0;i<7;i++){const d=new Date(s);d.setDate(d.getDate()+i);a.push(d)}return a};
+const isTd = d => {const t=new Date();return d.getFullYear()===t.getFullYear()&&d.getMonth()===t.getMonth()&&d.getDate()===t.getDate()};
+
+const RC = {
+  Stylist:{bg:'linear-gradient(135deg,#E3F2FD,#BBDEFB)',color:'#1565C0',border:'#90CAF9'},
+  Receptionist:{bg:'linear-gradient(135deg,#F3E5F5,#E1BEE7)',color:'#6A1B9A',border:'#CE93D8'}
+};
+
+async function apiFetch(path, opts={}){
+  const url = `${API}${path}${path.includes('?')?'&':'?'}dev_user_id=${DEV_USER_ID}`;
+  const res = await fetch(url, {headers:{'Content-Type':'application/json','x-dev-user-id':String(DEV_USER_ID),...opts.headers},...opts});
+  if(!res.ok){const e=await res.json().catch(()=>({detail:res.statusText}));throw new Error(e.detail||'API error')}
+  return res.json();
+}
+
+// ===== APP STATE =====
+let state = {
+  view:'schedule', wkOff:0, mLoc:'All', curUser:null,
+  users:[], shifts:{}, templates:[], torList:[], closedDates:[], blackoutDates:[], locations:[],
+  modal:null, toast:null, showReqForm:false, showClosedForm:null, showTplForm:false,
+  reqForm:{startDate:'',endDate:'',reason:''},
+  editUser:null, userForm:{firstName:'',lastName:'',positions:['Stylist'],location_id:''},
+  confirmDel:null, dateForm:{date:'',startDate:'',endDate:'',label:''},
+  tplForm:{name:'',start:'9:00a',end:'5:00p'}, editTpl:null,
+};
+
+function setState(updates){ Object.assign(state, updates); render(); }
+function toast(msg){ setState({toast:msg}); setTimeout(()=>setState({toast:null}), 3000); }
+
+// ===== DATA LOADING =====
+async function loadAll(){
+  try{
+    const users = await apiFetch('/api/scheduling/users');
+    const me = users.find(u=>u.user_id==DEV_USER_ID);
+    const locs = [...new Map(users.map(u=>[u.location_id,{id:u.location_id,name:u.location_name}])).values()];
+    const [tpls,tor,closed,bo] = await Promise.all([
+      apiFetch('/api/scheduling/templates').catch(()=>[]),
+      apiFetch('/api/scheduling/time-off').catch(()=>[]),
+      apiFetch('/api/scheduling/admin/closed-dates').catch(()=>[]),
+      apiFetch('/api/scheduling/admin/blackout-periods').catch(()=>[]),
+    ]);
+    setState({users,curUser:me,locations:locs,templates:tpls,torList:tor,closedDates:closed,blackoutDates:bo});
+  }catch(e){document.getElementById('app').innerHTML=`<div class="loading"><h1>Cookie Cutters ✂️</h1><p style="color:#C62828">Connection error: ${e.message}</p><p style="font-size:12px;color:#8D6E63">Make sure the API server is running</p></div>`}
+}
+
+async function loadShifts(){
+  try{
+    const ws = wsf(new Date(), state.wkOff);
+    const data = await apiFetch(`/api/scheduling/shifts?week_start=${dk(ws)}`);
+    const map = {};
+    data.forEach(s=>{map[`${s.user_id}-${s.shift_date}`]={shift_id:s.shift_id,start:apiToApp(s.start_time),end:apiToApp(s.end_time),role:s.position_name,loc:s.location_name==='Fort Worth'?'FW':'ARL',hours:s.hours_scheduled}});
+    setState({shifts:map});
+  }catch(e){console.error(e)}
+}
+
+// ===== API ACTIONS =====
+async function saveShift(userId,dateStr,data,locationId){
+  const posMap={Stylist:1,Receptionist:2};
+  const ex=state.shifts[`${userId}-${dateStr}`];
+  try{
+    if(ex?.shift_id) await apiFetch(`/api/scheduling/shifts/${ex.shift_id}`,{method:'PUT',body:JSON.stringify({start_time:appTo24(data.start),end_time:appTo24(data.end),position_id:posMap[data.role]||1})});
+    else await apiFetch('/api/scheduling/shifts',{method:'POST',body:JSON.stringify({user_id:userId,location_id:locationId,shift_date:dateStr,start_time:appTo24(data.start),end_time:appTo24(data.end),position_id:posMap[data.role]||1})});
+    setState({modal:null}); await loadShifts(); toast('Shift saved!');
+  }catch(e){toast(e.message)}
+}
+
+async function deleteShift(userId,dateStr){
+  const ex=state.shifts[`${userId}-${dateStr}`];
+  if(!ex?.shift_id)return;
+  try{await apiFetch(`/api/scheduling/shifts/${ex.shift_id}`,{method:'DELETE'});setState({modal:null});await loadShifts();toast('Shift removed')}catch(e){toast(e.message)}
+}
+
+async function submitTOR(){
+  const f=state.reqForm;if(!f.startDate||!f.reason){toast('Fill required fields');return}
+  try{await apiFetch('/api/scheduling/time-off',{method:'POST',body:JSON.stringify({start_date:f.startDate,end_date:f.endDate||f.startDate,reason:f.reason})});setState({showReqForm:false,reqForm:{startDate:'',endDate:'',reason:''}});await loadAll();toast('Submitted!')}catch(e){toast(e.message)}
+}
+
+async function reviewTOR(id,status){
+  try{await apiFetch(`/api/scheduling/time-off/${id}`,{method:'PUT',body:JSON.stringify({status})});await loadAll();toast(`${status}!`)}catch(e){toast(e.message)}
+}
+
+async function saveUser(){
+  const f=state.userForm;if(!f.firstName||!f.lastName){toast('Enter name');return}
+  try{
+    if(state.editUser==='new') await apiFetch('/api/scheduling/users',{method:'POST',body:JSON.stringify({first_name:f.firstName,last_name:f.lastName,positions:f.positions,location_id:f.location_id})});
+    else await apiFetch(`/api/scheduling/users/${state.editUser.user_id}`,{method:'PUT',body:JSON.stringify({first_name:f.firstName,last_name:f.lastName,positions:f.positions,location_id:f.location_id})});
+    setState({editUser:null});await loadAll();toast('Saved!')
+  }catch(e){toast(e.message)}
+}
+
+async function removeUser(uid){try{await apiFetch(`/api/scheduling/users/${uid}`,{method:'DELETE'});setState({confirmDel:null});await loadAll();toast('Removed')}catch(e){toast(e.message)}}
+
+async function saveTpl(){
+  const f=state.tplForm;if(!f.name){toast('Enter name');return}
+  try{
+    if(state.editTpl) await apiFetch(`/api/scheduling/templates/${state.editTpl.template_id}`,{method:'PUT',body:JSON.stringify({template_name:f.name,start_time:appTo24(f.start),end_time:appTo24(f.end)})});
+    else await apiFetch('/api/scheduling/templates',{method:'POST',body:JSON.stringify({template_name:f.name,start_time:appTo24(f.start),end_time:appTo24(f.end)})});
+    setState({showTplForm:false,editTpl:null});await loadAll();toast('Saved!')
+  }catch(e){toast(e.message)}
+}
+
+async function deleteTpl(id){try{await apiFetch(`/api/scheduling/templates/${id}`,{method:'DELETE'});await loadAll();toast('Removed')}catch(e){toast(e.message)}}
+async function addClosedDate(){const f=state.dateForm;if(!f.date||!f.label)return;try{await apiFetch('/api/scheduling/admin/closed-dates',{method:'POST',body:JSON.stringify({closed_date:f.date,label:f.label})});setState({showClosedForm:null});await loadAll();toast('Added!')}catch(e){toast(e.message)}}
+async function addBlackout(){const f=state.dateForm;if(!f.startDate||!f.endDate||!f.label)return;try{await apiFetch('/api/scheduling/admin/blackout-periods',{method:'POST',body:JSON.stringify({start_date:f.startDate,end_date:f.endDate,label:f.label})});setState({showClosedForm:null});await loadAll();toast('Added!')}catch(e){toast(e.message)}}
+async function removeClosedDate(id){try{await apiFetch(`/api/scheduling/admin/closed-dates/${id}`,{method:'DELETE'});await loadAll();toast('Removed')}catch(e){toast(e.message)}}
+async function removeBlackout(id){try{await apiFetch(`/api/scheduling/admin/blackout-periods/${id}`,{method:'DELETE'});await loadAll();toast('Removed')}catch(e){toast(e.message)}}
+
+// ===== RENDER =====
+function render(){
+  const s=state;const u=s.curUser;if(!u)return;
+  const isM=u.is_manager;
+  const vLoc=isM?s.mLoc:u.location_name;
+  const vUsers=s.users.filter(x=>!x.is_manager&&(vLoc==='All'||x.location_name===vLoc));
+  const TODAY=new Date();const ws=wsf(TODAY,s.wkOff);const wd=wdays(ws);
+  const wl=`${wd[0].toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${wd[6].toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`;
+  const gs=(uid,day)=>s.shifts[`${uid}-${dk(day)}`]||null;
+  const isCD=day=>s.closedDates.some(c=>c.closed_date===dk(day));
+  const isBD=day=>s.blackoutDates.some(b=>dk(day)>=b.start_date&&dk(day)<=b.end_date);
+
+  let wh={},twh=0;
+  vUsers.forEach(u=>{let h=0;wd.forEach(d=>{const sh=gs(u.user_id,d);if(sh)h+=pT(sh.end)-pT(sh.start)});wh[u.user_id]=h;twh+=h});
+
+  const vTOR=s.torList.filter(r=>vLoc==='All'||r.location_name===vLoc);
+
+  let html = '';
+
+  // Toast
+  if(s.toast) html+=`<div class="tst">${s.toast}</div>`;
+
+  // Header
+  html+=`<div class="hd"><div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:1"><div><div style="font-family:'Fredoka';font-size:20px;font-weight:700;color:white">Cookie Cutters ✂️</div><div style="color:rgba(255,255,255,0.85);font-size:12px;margin-top:2px">${isM?`<span class="mb" style="background:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.4);color:white">Manager</span> ${u.display_name}`:`${u.display_name} · ${u.location_name}`}</div></div><div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#FFE0B2,#FF8A65);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#E65100">${u.avatar_initials}</div></div></div>`;
+
+  html+='<div class="sa">';
+
+  // HOME
+  if(s.view==='home'){
+    if(isM) html+=renderLS();
+    html+=`<div class="cd" style="background:linear-gradient(135deg,#FFF3E0,#FFE8D5);border:1px solid #FFB74D"><div style="font-family:'Fredoka';font-weight:600;font-size:15px;color:#E65100;margin-bottom:8px">Dashboard</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div style="text-align:center"><div style="font-size:24px;font-weight:700;color:#F4511E;font-family:'Fredoka'">${vTOR.filter(r=>r.status==='PENDING').length}</div><div style="font-size:11px;color:#8D6E63">Pending</div></div><div style="text-align:center"><div style="font-size:24px;font-weight:700;color:#F4511E;font-family:'Fredoka'">${vUsers.length}</div><div style="font-size:11px;color:#8D6E63">Team</div></div></div></div>`;
+    html+=`<button class="btn bs" style="width:100%;justify-content:center" onclick="setState({view:'schedule'})">View Schedule →</button>`;
+  }
+
+  // SCHEDULE
+  if(s.view==='schedule'){
+    if(isM) html+=renderLS();
+    html+=`<div class="wn"><button class="wnb" onclick="setState({wkOff:state.wkOff-1});loadShifts()">‹</button><div style="text-align:center"><div style="font-family:'Fredoka';font-weight:600;font-size:16px;color:#4E342E">${isM?'Team Schedule':'My Team'}</div><div style="font-size:12px;color:#8D6E63;margin-top:2px">${wl}</div></div><button class="wnb" onclick="setState({wkOff:state.wkOff+1});loadShifts()">›</button></div>`;
+    if(s.wkOff!==0) html+=`<div style="text-align:center;margin-bottom:8px"><button onclick="setState({wkOff:0});loadShifts()" style="background:none;border:none;color:#FF7043;font-family:'DM Sans';font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline">Current week</button></div>`;
+    if(isM) html+=`<div class="eh"><span>💡</span><span><b>Tap shift</b> to edit · <b>Tap +</b> to add</span></div>`;
+    html+=`<div style="display:flex;gap:10px;margin-bottom:12px"><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#1565C0"><span class="lgd" style="background:#90CAF9"></span> Stylist</div><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#7B1FA2"><span class="lgd" style="background:#CE93D8"></span> Receptionist</div></div>`;
+
+    // Grid
+    html+='<div class="gw"><div class="sg"><div class="gc">Staff</div>';
+    wd.forEach(day=>{
+      const td=isTd(day);const cl=isCD(day);const bo=isBD(day);
+      html+=`<div class="gdh ${td?'td':''} ${cl?'cc':''}"><div style="font-size:9px;font-weight:700;color:${td?'#F4511E':cl?'#C62828':'#BCAAA4'};text-transform:uppercase">${fday(day)}</div><div style="font-size:15px;font-weight:700;font-family:'Fredoka';color:${td?'#FFF':cl?'#C62828':'#6D4C41'};margin-top:2px;${td?'background:#F4511E;width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center':''}">${day.getDate()}</div>${cl?'<div class="ct" style="margin-top:2px">Closed</div>':''}${!cl&&bo?'<div class="bt" style="margin-top:2px">No PTO</div>':''}</div>`;
+    });
+
+    vUsers.forEach(sty=>{
+      html+=`<div class="gsc"><div style="width:28px;height:28px;border-radius:7px;flex-shrink:0;background:${getColor(sty.user_id)}15;border:1.5px solid ${getColor(sty.user_id)}35;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:${getColor(sty.user_id)}">${sty.avatar_initials}</div><div style="min-width:0"><div style="font-size:11px;font-weight:700;color:#4E342E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${sty.display_name}</div><div style="font-size:8px;color:#BCAAA4">${isM&&vLoc==='All'?sty.location_name:sty.positions.join(' / ')}</div></div></div>`;
+      wd.forEach(day=>{
+        const d=dk(day);const shift=gs(sty.user_id,day);const td=isTd(day);const cl=isCD(day);
+        if(cl){html+=`<div class="gshc ccl"><span class="off" style="color:#E57373">✕</span></div>`;return}
+        if(shift){
+          const rc=RC[shift.role]||RC.Stylist;
+          html+=`<div class="gshc ${td?'td':''}" onclick="openModal('edit',${sty.user_id},'${d}','${fd(day).replace("'","\\'")}','${sty.display_name.replace("'","\\'")}',${JSON.stringify(sty.positions).replace(/"/g,"&quot;")},'${sty.location_id}')"><div class="sp" style="background:${rc.bg};color:${rc.color};border:1px solid ${rc.border}"><span>${shift.start}</span><span>${shift.end}</span><span style="font-size:7px;font-weight:700;margin-top:1px">${shift.role==='Receptionist'?'Rec.':'Stylist'}</span></div></div>`;
+        } else if(isM){
+          html+=`<div class="gshc ${td?'td':''}" onclick="openModal('add',${sty.user_id},'${d}','${fd(day).replace("'","\\'")}','${sty.display_name.replace("'","\\'")}',${JSON.stringify(sty.positions).replace(/"/g,"&quot;")},'${sty.location_id}')"><button class="ea">+</button></div>`;
+        } else {
+          html+=`<div class="gshc ${td?'td':''}"><span class="off">OFF</span></div>`;
+        }
+      });
+    });
+
+    // Hours row
+    html+='<div class="hrl">Hours</div>';
+    wd.forEach(day=>{let t=0;vUsers.forEach(u=>{const sh=gs(u.user_id,day);if(sh)t+=pT(sh.end)-pT(sh.start)});html+=`<div class="hrc">${t>0?fmtHrs(t):''}</div>`});
+    html+='</div></div>';
+
+    // Summary card
+    html+=`<div class="cd" style="margin-top:14px;background:#FFFDF7"><div style="font-family:'Fredoka';font-weight:600;font-size:14px;color:#4E342E;margin-bottom:10px">Weekly Hours</div>`;
+    vUsers.forEach(sty=>{html+=`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F5EDE3"><span style="font-size:12px;color:#4E342E">${sty.display_name}</span><span style="font-size:12px;font-weight:700;color:#6D4C41;font-family:'Fredoka'">${fmtHrs(wh[sty.user_id]||0)}</span></div>`});
+    html+=`<div style="display:flex;justify-content:flex-end;padding-top:10px;border-top:2px solid #EDE0D4;margin-top:6px"><span style="font-size:14px;font-weight:700;color:#BF360C;font-family:'Fredoka'">Total: ${fmtHrs(twh)}</span></div></div>`;
+  }
+
+  // TIME OFF
+  if(s.view==='timeoff'){
+    if(isM) html+=renderLS();
+    html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div class="st" style="margin-bottom:0">${isM?'Requests':'Time Off'}</div>${!isM?`<button class="btn bp" onclick="setState({showReqForm:!state.showReqForm})">${s.showReqForm?'Cancel':'+ Request'}</button>`:''}</div>`;
+
+    if(s.showReqForm&&!isM){
+      html+=`<div class="cd" style="border-color:#FF7043;border-width:2px;margin-bottom:18px"><div style="display:flex;flex-direction:column;gap:12px"><div><label style="font-size:12px;font-weight:600;color:#8D6E63;display:block;margin-bottom:4px">Start *</label><input type="date" class="ff" value="${s.reqForm.startDate}" onchange="setState({reqForm:{...state.reqForm,startDate:this.value}})"></div><div><label style="font-size:12px;font-weight:600;color:#8D6E63;display:block;margin-bottom:4px">End</label><input type="date" class="ff" value="${s.reqForm.endDate}" onchange="setState({reqForm:{...state.reqForm,endDate:this.value}})"></div><div><label style="font-size:12px;font-weight:600;color:#8D6E63;display:block;margin-bottom:4px">Reason *</label><select class="ff" onchange="setState({reqForm:{...state.reqForm,reason:this.value}})"><option value="">Select...</option><option>Vacation</option><option>Personal</option><option>Medical</option><option>Family</option></select></div><button class="btn bp" style="width:100%;justify-content:center" onclick="submitTOR()">Submit</button></div></div>`;
+    }
+
+    // Manager: closed/blackout management
+    if(isM){
+      html+=`<div style="display:flex;gap:8px;margin-bottom:14px"><button class="btn bp bsm" onclick="setState({showClosedForm:'closed',dateForm:{date:'',startDate:'',endDate:'',label:''}})">+ Closed</button><button class="btn bs bsm" onclick="setState({showClosedForm:'blackout',dateForm:{date:'',startDate:'',endDate:'',label:''}})">+ Blackout</button></div>`;
+      if(s.showClosedForm==='closed') html+=`<div class="cd" style="border-color:#FF7043;border-width:2px"><div style="display:flex;flex-direction:column;gap:10px"><input type="date" class="ff" value="${s.dateForm.date}" onchange="setState({dateForm:{...state.dateForm,date:this.value}})"><input class="ff" placeholder="Label" value="${s.dateForm.label}" oninput="setState({dateForm:{...state.dateForm,label:this.value}})"><div style="display:flex;gap:8px"><button class="btn bp bsm" onclick="addClosedDate()">Add</button><button class="btn bs bsm" onclick="setState({showClosedForm:null})">Cancel</button></div></div></div>`;
+      if(s.showClosedForm==='blackout') html+=`<div class="cd" style="border-color:#FFB74D;border-width:2px"><div style="display:flex;flex-direction:column;gap:10px"><input type="date" class="ff" placeholder="Start" value="${s.dateForm.startDate}" onchange="setState({dateForm:{...state.dateForm,startDate:this.value}})"><input type="date" class="ff" placeholder="End" value="${s.dateForm.endDate}" onchange="setState({dateForm:{...state.dateForm,endDate:this.value}})"><input class="ff" placeholder="Label" value="${s.dateForm.label}" oninput="setState({dateForm:{...state.dateForm,label:this.value}})"><div style="display:flex;gap:8px"><button class="btn bp bsm" onclick="addBlackout()">Add</button><button class="btn bs bsm" onclick="setState({showClosedForm:null})">Cancel</button></div></div></div>`;
+      s.closedDates.forEach(c=>{html+=`<div class="cd" style="display:flex;justify-content:space-between;padding:14px"><div><div style="font-size:13px;font-weight:600;color:#C62828">🚫 ${c.label}</div><div style="font-size:11px;color:#8D6E63">${c.closed_date}</div></div><button onclick="removeClosedDate(${c.closed_date_id})" style="background:none;border:none;font-size:16px;color:#E57373;cursor:pointer">✕</button></div>`});
+      s.blackoutDates.forEach(b=>{html+=`<div class="cd" style="display:flex;justify-content:space-between;padding:14px;border-left:4px solid #FFB74D"><div><div style="font-size:13px;font-weight:600;color:#E65100">⛔ ${b.label}</div><div style="font-size:11px;color:#8D6E63">${b.start_date} – ${b.end_date}</div></div><button onclick="removeBlackout(${b.blackout_id})" style="background:none;border:none;font-size:16px;color:#E57373;cursor:pointer">✕</button></div>`});
+    }
+
+    html+=`<div class="st" style="margin-top:18px">${isM?'Approvals':'My Requests'}</div>`;
+    const tors = isM ? vTOR : vTOR.filter(r=>r.user_id===u.user_id);
+    tors.sort((a,b)=>a.status==='PENDING'?-1:1).forEach(req=>{
+      html+=`<div class="cd"><div style="display:flex;justify-content:space-between">${isM?`<div><div style="font-weight:700;font-size:14px;color:#4E342E;font-family:'Fredoka'">${req.display_name} <span style="font-size:11px;color:#BCAAA4">${req.location_name}</span></div>`:'<div>'}<div style="font-weight:600;font-size:14px;color:#4E342E">${req.start_date}${req.end_date!==req.start_date?' – '+req.end_date:''}</div><div style="font-size:13px;color:#8D6E63;margin-top:4px">${req.reason}</div></div><span style="background:${req.status==='PENDING'?'#FFF3E0':req.status==='APPROVED'?'#E8F5E9':'#FFEBEE'};color:${req.status==='PENDING'?'#E65100':req.status==='APPROVED'?'#2E7D32':'#C62828'};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase">${req.status}</span></div>`;
+      if(isM&&req.status==='PENDING') html+=`<div style="display:flex;gap:8px;margin-top:12px"><button class="btn bsm bap" onclick="reviewTOR(${req.request_id},'APPROVED')">Approve</button><button class="btn bsm bdn" onclick="reviewTOR(${req.request_id},'DENIED')">Deny</button></div>`;
+      html+=`</div>`;
+    });
+    if(tors.length===0) html+=`<div style="text-align:center;padding:30px;color:#BCAAA4">No requests</div>`;
+  }
+
+  // TEAM
+  if(s.view==='team'&&isM){
+    html+=renderLS();
+    html+=`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><div class="st" style="margin-bottom:0">Team</div><button class="btn bp" onclick="setState({editUser:'new',userForm:{firstName:'',lastName:'',positions:['Stylist'],location_id:state.locations[0]?.id||''}})">+ Add</button></div>`;
+    if(s.editUser) html+=renderUserForm();
+    vUsers.forEach(usr=>{
+      if(s.confirmDel===usr.user_id){
+        html+=`<div class="cd" style="padding:14px"><div style="color:#C62828;font-weight:600;margin-bottom:10px">Remove ${usr.display_name}?</div><div style="display:flex;gap:8px"><button class="btn bsm bdn" onclick="removeUser(${usr.user_id})">Yes</button><button class="btn bsm bs" onclick="setState({confirmDel:null})">Cancel</button></div></div>`;
+      } else {
+        html+=`<div class="cd" style="padding:14px;display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;border-radius:12px;background:${getColor(usr.user_id)}15;border:1.5px solid ${getColor(usr.user_id)}35;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:${getColor(usr.user_id)};flex-shrink:0">${usr.avatar_initials}</div><div style="flex:1"><div style="font-size:14px;font-weight:700;color:#4E342E">${usr.display_name}</div><div style="display:flex;gap:4px;margin-top:4px">${usr.positions.map(p=>`<span class="pb ${p==='Stylist'?'pb-s':'pb-r'}">${p}</span>`).join('')}</div><div style="font-size:11px;color:#BCAAA4;margin-top:4px">${usr.location_name}</div></div><div style="display:flex;gap:6px"><button onclick="setState({editUser:state.users.find(u=>u.user_id===${usr.user_id}),userForm:{firstName:'${usr.first_name}',lastName:'${usr.last_name}',positions:${JSON.stringify(usr.positions)},location_id:'${usr.location_id}'}})" style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">✏️</button><button onclick="setState({confirmDel:${usr.user_id}})" style="background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">🗑️</button></div></div>`;
+      }
+    });
+  }
+
+  // MORE
+  if(s.view==='more'){
+    html+=`<div class="st">More</div>`;
+    html+=`<div class="cd" style="display:flex;align-items:center;gap:14px;margin-bottom:18px"><div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#FFE0B2,#FF8A65);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#E65100;font-family:'Fredoka'">${u.avatar_initials}</div><div><div style="display:flex;align-items:center;gap:8px"><div style="font-weight:700;font-size:16px;color:#4E342E;font-family:'Fredoka'">${u.display_name}</div>${isM?'<span class="mb">Manager</span>':''}</div><div style="font-size:13px;color:#8D6E63">${u.positions?.join(' / ')||u.location_name}</div></div></div>`;
+
+    if(isM){
+      html+=`<div style="display:flex;justify-content:space-between;margin-bottom:12px"><div class="st" style="margin-bottom:0">🕐 Shifts</div><button class="btn bp bsm" onclick="setState({showTplForm:true,editTpl:null,tplForm:{name:'',start:'9:00a',end:'5:00p'}})">+ New</button></div>`;
+      if(s.showTplForm) html+=renderTplForm();
+      s.templates.forEach(t=>{html+=`<div class="cd" style="padding:14px;display:flex;justify-content:space-between"><div><div style="font-size:14px;font-weight:700;color:#4E342E">${t.template_name}</div><div style="font-size:13px;color:#8D6E63;margin-top:2px">${apiToApp(t.start_time)} – ${apiToApp(t.end_time)} · ${fmtHrs(t.hours_scheduled)}</div></div><div style="display:flex;gap:6px"><button onclick="setState({editTpl:state.templates.find(x=>x.template_id===${t.template_id}),tplForm:{name:'${t.template_name}',start:'${apiToApp(t.start_time)}',end:'${apiToApp(t.end_time)}'},showTplForm:true})" style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer">✏️</button><button onclick="deleteTpl(${t.template_id})" style="background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer">🗑️</button></div></div>`});
+    }
+    html+=`<div style="text-align:center;margin-top:24px;padding-bottom:20px"><div style="font-family:'Fredoka';font-size:16px;color:#E65100;font-weight:600">Cookie Cutters ✂️</div><div style="font-size:11px;color:#BCAAA4;margin-top:4px">Staff App v1.0 · Live</div></div>`;
+  }
+
+  html+='</div>';
+
+  // Nav
+  const tabs=[{id:'home',icon:'🏠',label:'Home'},{id:'schedule',icon:'📅',label:'Schedule'},{id:'timeoff',icon:'🌴',label:'Time Off'}];
+  if(isM) tabs.push({id:'team',icon:'👥',label:'Team'});
+  tabs.push({id:'more',icon:'✂️',label:'More'});
+  html+=`<div class="nv">${tabs.map(t=>`<button class="${s.view===t.id?'a':''}" onclick="setState({view:'${t.id}'})"><span class="ni">${t.icon}</span>${t.label}</button>`).join('')}</div>`;
+
+  // Modal
+  if(s.modal) html+=renderModal();
+
+  document.getElementById('app').innerHTML = html;
+}
+
+function renderLS(){
+  return `<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:600;color:#8D6E63;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Location</div><select onchange="setState({mLoc:this.value})" style="width:100%;padding:10px 14px;border-radius:12px;border:1.5px solid #FFB74D;background:#FFF8F0;font-family:'DM Sans';font-size:14px;font-weight:600;color:#E65100;outline:none;cursor:pointer"><option value="All" ${state.mLoc==='All'?'selected':''}>All Locations</option>${state.locations.map(l=>`<option value="${l.name}" ${state.mLoc===l.name?'selected':''}>${l.name}</option>`).join('')}</select></div>`;
+}
+
+function renderUserForm(){
+  const f=state.userForm;
+  return `<div class="cd" style="border-color:#FF7043;border-width:2px;margin-bottom:18px"><div style="display:flex;flex-direction:column;gap:12px"><div style="display:flex;gap:10px"><input class="ff" placeholder="First" value="${f.firstName}" oninput="setState({userForm:{...state.userForm,firstName:this.value}})"><input class="ff" placeholder="Last" value="${f.lastName}" oninput="setState({userForm:{...state.userForm,lastName:this.value}})"></div><div style="display:flex;gap:8px">${['Stylist','Receptionist'].map(p=>`<button class="pt ${f.positions.includes(p)?'on':''}" onclick="togglePos('${p}')">${f.positions.includes(p)?'✓ ':''}${p}</button>`).join('')}</div><select class="ff" onchange="setState({userForm:{...state.userForm,location_id:this.value}})">${state.locations.map(l=>`<option value="${l.id}" ${f.location_id===l.id?'selected':''}>${l.name}</option>`).join('')}</select><div style="display:flex;gap:8px"><button class="btn bp" style="flex:1;justify-content:center" onclick="saveUser()">${state.editUser==='new'?'Add':'Save'}</button><button class="btn bs" onclick="setState({editUser:null})">Cancel</button></div></div></div>`;
+}
+
+function togglePos(pos){
+  const has=state.userForm.positions.includes(pos);
+  const next=has?state.userForm.positions.filter(p=>p!==pos):[...state.userForm.positions,pos];
+  if(next.length) setState({userForm:{...state.userForm,positions:next}});
+}
+
+function renderTplForm(){
+  const f=state.tplForm;
+  const opts=TOPTS.map(t=>`<option value="${t}" ${f.start===t?'selected':''}>${t}</option>`).join('');
+  const opts2=TOPTS.map(t=>`<option value="${t}" ${f.end===t?'selected':''}>${t}</option>`).join('');
+  return `<div class="cd" style="border-color:#FF7043;border-width:2px;margin-bottom:14px"><div style="display:flex;flex-direction:column;gap:10px"><input class="ff" placeholder="Shift name" value="${f.name}" oninput="setState({tplForm:{...state.tplForm,name:this.value}})"><div style="display:flex;gap:8px"><select class="ff" style="flex:1" onchange="setState({tplForm:{...state.tplForm,start:this.value}})">${opts}</select><select class="ff" style="flex:1" onchange="setState({tplForm:{...state.tplForm,end:this.value}})">${opts2}</select></div><div style="display:flex;gap:8px"><button class="btn bp bsm" style="flex:1;justify-content:center" onclick="saveTpl()">${state.editTpl?'Save':'Create'}</button><button class="btn bs bsm" onclick="setState({showTplForm:false,editTpl:null})">Cancel</button></div></div></div>`;
+}
+
+function openModal(mode,userId,dayKey,dayLabel,stylistName,positions,locationId){
+  if(typeof positions==='string') positions=JSON.parse(positions);
+  const shift = state.shifts[`${userId}-${dayKey}`]||null;
+  setState({modal:{mode,userId,dayKey,dayLabel,stylistName,positions,locationId,shift}});
+}
+
+function renderModal(){
+  const m=state.modal;if(!m)return'';
+  const shift=m.shift;
+  const start=shift?.start||'9:50a';const end=shift?.end||'6:00p';const role=shift?.role||m.positions[0]||'Stylist';
+  const tpls=state.templates;
+
+  let h=`<div class="modal-bg" onclick="setState({modal:null})"><div class="modal" onclick="event.stopPropagation()">`;
+  h+=`<div style="display:flex;justify-content:space-between;margin-bottom:18px"><div style="font-family:'Fredoka';font-weight:600;font-size:18px;color:#4E342E">${m.mode==='add'?'Add Shift':'Edit Shift'}</div><button onclick="setState({modal:null})" style="background:none;border:none;font-size:20px;color:#BCAAA4;cursor:pointer">✕</button></div>`;
+  h+=`<div style="background:#FFF9F0;border-radius:12px;padding:12px;margin-bottom:16px"><div style="font-size:13px;font-weight:700;color:#4E342E">${m.stylistName}</div><div style="font-size:12px;color:#8D6E63;margin-top:2px">📅 ${m.dayLabel}</div></div>`;
+
+  // Role
+  h+=`<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:600;color:#8D6E63;display:block;margin-bottom:6px">Role</label><div style="display:flex;gap:8px" id="modal-roles">`;
+  m.positions.forEach(pos=>{h+=`<button class="pt ${role===pos?'on':''}" onclick="document.querySelectorAll('#modal-roles .pt').forEach(b=>b.classList.remove('on'));this.classList.add('on');window._modalRole='${pos}'">${pos}</button>`});
+  h+=`</div></div>`;
+
+  // Templates
+  if(m.mode==='add'&&tpls.length>0){
+    h+=`<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:600;color:#8D6E63;display:block;margin-bottom:6px">Pre-defined Shifts</label>`;
+    tpls.forEach(t=>{h+=`<button style="display:block;width:100%;padding:12px 14px;border-radius:12px;text-align:left;cursor:pointer;font-family:'DM Sans';font-size:13px;font-weight:600;background:#FFFDF9;border:1.5px solid #E8D5C4;color:#4E342E;margin-bottom:6px" onclick="window._modalStart='${apiToApp(t.start_time)}';window._modalEnd='${apiToApp(t.end_time)}';document.getElementById('m-start').value='${apiToApp(t.start_time)}';document.getElementById('m-end').value='${apiToApp(t.end_time)}';this.style.borderColor='#FF7043';this.style.background='#FFF3E0'">${t.template_name} <span style="float:right;color:#BCAAA4">${apiToApp(t.start_time)}–${apiToApp(t.end_time)}</span></button>`});
+    h+=`</div>`;
+  }
+
+  // Custom time
+  h+=`<div style="margin-bottom:14px"><label style="font-size:12px;font-weight:600;color:#8D6E63;display:block;margin-bottom:6px">${m.mode==='add'?'Or custom time':'Time'}</label><div style="display:flex;gap:8px"><select id="m-start" class="ff" style="flex:1" onchange="window._modalStart=this.value">${TOPTS.map(t=>`<option ${t===start?'selected':''}>${t}</option>`).join('')}</select><select id="m-end" class="ff" style="flex:1" onchange="window._modalEnd=this.value">${TOPTS.map(t=>`<option ${t===end?'selected':''}>${t}</option>`).join('')}</select></div></div>`;
+
+  // Buttons
+  h+=`<div style="display:flex;gap:8px"><button class="btn bp" style="flex:1;justify-content:center" onclick="saveShift(${m.userId},'${m.dayKey}',{start:window._modalStart||'${start}',end:window._modalEnd||'${end}',role:window._modalRole||'${role}'},'${m.locationId}')">${m.mode==='add'?'Add Shift':'Save'}</button>`;
+  if(m.mode==='edit') h+=`<button class="btn bsm bdn" onclick="deleteShift(${m.userId},'${m.dayKey}')">Delete</button>`;
+  h+=`</div></div></div>`;
+  return h;
+}
+
+// Init
+window._modalStart='';window._modalEnd='';window._modalRole='';
+loadAll().then(()=>loadShifts());
+</script>
+</body>
+</html>

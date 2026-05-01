@@ -7,10 +7,13 @@ This is the main entry point — register new project routers here.
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 from app.config import get_settings
 from app.db.snowflake import get_pool
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -71,9 +74,6 @@ app.include_router(admin.router)
 
 @app.get("/")
 async def root():
-    return {
-        "service": "Cookie Cutters API",
-        "version": "1.0.0",
-        "docs": "/docs",
-        "health": "/api/health",
-    }
+    """Serve the frontend app."""
+    static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+    return FileResponse(os.path.join(static_dir, "index.html"))
