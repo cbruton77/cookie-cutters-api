@@ -30,6 +30,7 @@ body{font-family:'DM Sans',sans-serif;background:linear-gradient(180deg,#FFF9F0 
 .sa{padding:16px 16px 80px}
 .tst{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#4E342E;color:white;padding:12px 24px;border-radius:14px;font-family:'DM Sans';font-size:14px;font-weight:500;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,0.2);animation:sd 0.3s ease}
 @keyframes sd{from{opacity:0;transform:translateX(-50%) translateY(-20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .gw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px 4px}
 .sg{display:grid;grid-template-columns:90px repeat(7,minmax(50px,1fr));min-width:520px;border-radius:14px;overflow:hidden;border:1.5px solid #EDE0D4;background:#FFF;box-shadow:0 2px 16px rgba(0,0,0,0.05)}
 .gc{background:#FAF4ED;padding:10px 6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#BCAAA4;text-transform:uppercase;letter-spacing:1px;border-bottom:1.5px solid #EDE0D4;border-right:1.5px solid #EDE0D4}
@@ -123,6 +124,7 @@ let state = {
   announcementForm:{title:'',body:''},
   ruleForm:{rule_type:'MAX_CONSECUTIVE_DAYS',rule_name:'',rule_description:'',param_1:'',param_2:'',user_id:''},
   editRule:null,
+  generating:false, draftBatchId:null, draftShifts:[],
 };
 
 function setState(updates){ Object.assign(state, updates); render(); }
@@ -237,6 +239,36 @@ async function updateHours(hoursId,data){
 // Login Log
 async function loadLoginLog(){
   try{const data=await apiFetch('/api/scheduling/admin/login-log');setState({loginLog:data})}catch(e){console.error(e)}
+}
+
+// Auto-scheduler
+async function generateSchedule(locationId, month, year){
+  setState({generating:true});
+  try{
+    const result = await apiFetch('/api/scheduling/auto-generate',{method:'POST',body:JSON.stringify({location_id:locationId,month:parseInt(month),year:parseInt(year)})});
+    const drafts = await apiFetch(`/api/scheduling/drafts/${result.batch_id}`);
+    setState({generating:false,draftBatchId:result.batch_id,draftShifts:drafts});
+    toast(`Generated ${result.shifts_generated} shifts!`);
+  }catch(e){setState({generating:false});toast(e.message)}
+}
+
+async function approveDraft(){
+  if(!state.draftBatchId)return;
+  try{
+    const result = await apiFetch(`/api/scheduling/drafts/${state.draftBatchId}/approve`,{method:'POST'});
+    setState({draftBatchId:null,draftShifts:[]});
+    toast(`Approved ${result.shifts_created} shifts!`);
+    await loadShifts();
+  }catch(e){toast(e.message)}
+}
+
+async function discardDraft(){
+  if(!state.draftBatchId)return;
+  try{
+    await apiFetch(`/api/scheduling/drafts/${state.draftBatchId}`,{method:'DELETE'});
+    setState({draftBatchId:null,draftShifts:[]});
+    toast('Draft discarded');
+  }catch(e){toast(e.message)}
 }
 
 // ===== RENDER =====
@@ -455,6 +487,62 @@ function render(){
         html+=`<div class="cd" style="padding:14px;display:flex;justify-content:space-between"><div><div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#1565C0;background:#E3F2FD;padding:2px 8px;border-radius:8px;font-weight:600">${rTypeLabels[r.RULE_TYPE]||r.RULE_TYPE}</span>${r.USER_NAME?`<span style="font-size:11px;color:#7B1FA2;background:#F3E5F5;padding:2px 8px;border-radius:8px;font-weight:600">${r.USER_NAME}</span>`:''}</div><div style="font-size:14px;font-weight:700;color:#4E342E;margin-top:6px">${r.RULE_NAME}</div>${r.RULE_DESCRIPTION?`<div style="font-size:12px;color:#8D6E63;margin-top:2px">${r.RULE_DESCRIPTION}</div>`:''}<div style="font-size:11px;color:#BCAAA4;margin-top:4px">${r.PARAM_1?'Value: '+r.PARAM_1:''}${r.PARAM_2?' – '+r.PARAM_2:''}</div></div><button onclick="removeRule(${r.RULE_ID})" style="background:none;border:none;font-size:16px;color:#E57373;cursor:pointer;flex-shrink:0">✕</button></div>`;
       });
       if(filteredRules.length===0) html+=`<div style="text-align:center;padding:20px;color:#BCAAA4;font-size:13px">No rules yet. Add rules to guide the auto-scheduler.</div>`;
+
+      // ===== AUTO-SCHEDULE GENERATOR =====
+      html+=`<div style="margin-top:22px;margin-bottom:12px"><div class="st" style="margin-bottom:4px">🤖 Auto-Schedule Generator</div><div style="font-size:12px;color:#8D6E63;margin-bottom:12px;line-height:1.5">Use AI to generate an optimized monthly schedule based on historical data, demand patterns, and scheduling rules.</div></div>`;
+
+      if(s.draftBatchId && s.draftShifts.length>0){
+        // Show draft review
+        html+=`<div class="cd" style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border:2px solid #81C784;padding:18px"><div style="font-family:'Fredoka';font-weight:600;font-size:16px;color:#2E7D32;margin-bottom:4px">📋 Draft Schedule Ready</div><div style="font-size:13px;color:#4E342E;margin-bottom:12px">${s.draftShifts.length} shifts generated</div>`;
+
+        // Summary by employee
+        const byEmp={};
+        s.draftShifts.forEach(d=>{
+          if(!byEmp[d.DISPLAY_NAME]) byEmp[d.DISPLAY_NAME]={shifts:0,hours:0,positions:new Set()};
+          byEmp[d.DISPLAY_NAME].shifts++;
+          byEmp[d.DISPLAY_NAME].hours+=d.HOURS_SCHEDULED||0;
+          byEmp[d.DISPLAY_NAME].positions.add(d.POSITION_NAME);
+        });
+        Object.entries(byEmp).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([name,info])=>{
+          html+=`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(46,125,50,0.15)"><div><span style="font-size:13px;font-weight:600;color:#2E7D32">${name}</span><span style="font-size:11px;color:#66BB6A;margin-left:6px">${[...info.positions].join('/')}</span></div><div style="text-align:right"><span style="font-size:12px;font-weight:700;color:#2E7D32">${info.shifts} shifts</span><span style="font-size:11px;color:#66BB6A;margin-left:6px">${fmtHrs(info.hours)}</span></div></div>`;
+        });
+
+        // Weekly breakdown
+        const byWeek={};
+        s.draftShifts.forEach(d=>{
+          const dt=new Date(d.SHIFT_DATE+'T12:00');
+          const wk=Math.ceil(dt.getDate()/7);
+          const key=d.DISPLAY_NAME+'-w'+wk;
+          if(!byWeek[key]) byWeek[key]=0;
+          byWeek[key]+=(d.HOURS_SCHEDULED||0);
+        });
+
+        html+=`<div style="display:flex;gap:8px;margin-top:14px"><button class="btn bp" style="flex:1;justify-content:center" onclick="approveDraft()">✅ Approve & Publish</button><button class="btn bdn" style="flex:1;justify-content:center" onclick="discardDraft()">❌ Discard</button></div>`;
+
+        // Sample AI reasoning
+        const sample = s.draftShifts.filter(d=>d.AI_REASONING).slice(0,3);
+        if(sample.length>0){
+          html+=`<div style="margin-top:12px"><div style="font-size:11px;font-weight:600;color:#2E7D32;margin-bottom:6px">🧠 AI Reasoning (sample)</div>`;
+          sample.forEach(d=>{html+=`<div style="font-size:11px;color:#4E342E;padding:4px 0;border-bottom:1px solid rgba(46,125,50,0.1)"><b>${d.DISPLAY_NAME}</b> ${d.SHIFT_DATE}: ${d.AI_REASONING}</div>`});
+          html+=`</div>`;
+        }
+        html+=`</div>`;
+      } else {
+        // Show generation form
+        const nextMonth = new Date();nextMonth.setMonth(nextMonth.getMonth()+1);
+        const defMonth = nextMonth.getMonth()+1;
+        const defYear = nextMonth.getFullYear();
+        const selLoc = vLoc!=='All' ? s.locations.find(l=>l.name===vLoc) : s.locations[0];
+
+        html+=`<div class="cd" style="border:2px solid #FF7043;background:linear-gradient(135deg,#FFF3E0,#FFE8D5)">`;
+        html+=`<div style="display:flex;gap:8px;margin-bottom:12px"><div style="flex:1"><label style="font-size:11px;font-weight:600;color:#8D6E63;display:block;margin-bottom:4px">Month</label><select id="ag-month" class="ff">${[['1','January'],['2','February'],['3','March'],['4','April'],['5','May'],['6','June'],['7','July'],['8','August'],['9','September'],['10','October'],['11','November'],['12','December']].map(m=>`<option value="${m[0]}" ${parseInt(m[0])===defMonth?'selected':''}>${m[1]}</option>`).join('')}</select></div><div style="flex:1"><label style="font-size:11px;font-weight:600;color:#8D6E63;display:block;margin-bottom:4px">Year</label><select id="ag-year" class="ff"><option value="2026" ${defYear===2026?'selected':''}>2026</option><option value="2027" ${defYear===2027?'selected':''}>2027</option></select></div></div>`;
+        if(vLoc==='All'){
+          html+=`<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;color:#8D6E63;display:block;margin-bottom:4px">Location</label><select id="ag-loc" class="ff">${s.locations.map(l=>`<option value="${l.id}">${l.name}</option>`).join('')}</select></div>`;
+        }
+        html+=`<button class="btn bp" style="width:100%;justify-content:center;padding:14px;font-size:16px" onclick="const m=document.getElementById('ag-month').value;const y=document.getElementById('ag-year').value;const l=${vLoc!=='All'?`'${selLoc?.id||''}'`:`document.getElementById('ag-loc').value`};generateSchedule(l,m,y)" ${s.generating?'disabled':''}>`;
+        html+=s.generating?'<span style="animation:spin 1s linear infinite;display:inline-block">⚡</span> Generating... (this may take a minute)':'🤖 Generate Schedule';
+        html+=`</button></div>`;
+      }
 
       // ===== LOGIN ACTIVITY =====
       html+=`<div style="display:flex;justify-content:space-between;margin-top:22px;margin-bottom:12px"><div class="st" style="margin-bottom:0">👁️ Login Activity</div><button class="btn bs bsm" onclick="loadLoginLog()">Refresh</button></div>`;

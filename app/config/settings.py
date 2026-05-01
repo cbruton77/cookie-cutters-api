@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     supabase_anon_key: str = ""
     supabase_jwt_secret: str = ""
 
+    # Anthropic (for AI auto-scheduler)
+    anthropic_api_key: str = ""
+
     # App
     app_env: str = "development"
     app_debug: bool = True

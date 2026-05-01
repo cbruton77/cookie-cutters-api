@@ -55,7 +55,7 @@ app.add_middleware(
 #   2. Import and include it here
 # =============================================================================
 
-from app.routers import health, users, shifts, time_off, templates, admin
+from app.routers import health, users, shifts, time_off, templates, admin, autoschedule
 
 # Core
 app.include_router(health.router)
@@ -66,6 +66,7 @@ app.include_router(shifts.router)
 app.include_router(time_off.router)
 app.include_router(templates.router)
 app.include_router(admin.router)
+app.include_router(autoschedule.router)
 
 # Future: AI Analytics project
 # from app.routers import analytics
