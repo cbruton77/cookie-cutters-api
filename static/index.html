@@ -279,16 +279,12 @@ function render(){
     html+=`<div class="cd" style="background:linear-gradient(135deg,#FFF3E0,#FFE8D5);border:1px solid #FFB74D"><div style="font-family:'Fredoka';font-weight:600;font-size:15px;color:#E65100;margin-bottom:8px">Dashboard</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div style="text-align:center"><div style="font-size:24px;font-weight:700;color:#F4511E;font-family:'Fredoka'">${vTOR.filter(r=>r.status==='PENDING').length}</div><div style="font-size:11px;color:#8D6E63">Pending</div></div><div style="text-align:center"><div style="font-size:24px;font-weight:700;color:#F4511E;font-family:'Fredoka'">${vUsers.length}</div><div style="font-size:11px;color:#8D6E63">Team</div></div></div></div>`;
     html+=`<button class="btn bs" style="width:100%;justify-content:center" onclick="setState({view:'schedule'})">View Schedule →</button>`;
 
-    // Upcoming holidays
-    if(s.closedDates.length>0){
-      const upcoming = s.closedDates.filter(c=>c.closed_date>=dk(new Date())).sort((a,b)=>a.closed_date.localeCompare(b.closed_date));
-      if(upcoming.length>0){
-        html+=`<div class="st" style="margin-top:22px">📅 Upcoming Holidays</div>`;
-        upcoming.forEach(c=>{
-          const d=new Date(c.closed_date+'T12:00');
-          html+=`<div class="cd" style="padding:14px;display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#FFF8E1,#FFF3E0);border:1px solid #FFE0B2"><div style="width:44px;height:44px;border-radius:12px;background:#FFEBEE;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="font-size:9px;font-weight:700;color:#C62828;text-transform:uppercase">${d.toLocaleDateString('en-US',{month:'short'})}</div><div style="font-size:18px;font-weight:700;color:#C62828;font-family:'Fredoka';line-height:1">${d.getDate()}</div></div><div><div style="font-size:14px;font-weight:700;color:#4E342E">${c.label}</div><div style="font-size:12px;color:#8D6E63;margin-top:2px">${d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div></div></div>`;
-        });
-      }
+    // Announcements
+    if(s.announcements&&s.announcements.length>0){
+      html+=`<div class="st" style="margin-top:22px">📢 Announcements</div>`;
+      s.announcements.forEach(a=>{
+        html+=`<div class="cd" style="background:linear-gradient(135deg,#FFF8E1,#FFF3E0);border:1px solid #FFE0B2;border-left:4px solid #FFB74D"><div style="font-weight:700;font-size:14px;color:#4E342E">${a.title}</div><div style="font-size:13px;color:#6D4C41;margin-top:6px;line-height:1.5">${a.body}</div></div>`;
+      });
     }
 
     // Blackout periods
@@ -302,12 +298,16 @@ function render(){
       }
     }
 
-    // Announcements
-    if(s.announcements&&s.announcements.length>0){
-      html+=`<div class="st" style="margin-top:22px">📢 Announcements</div>`;
-      s.announcements.forEach(a=>{
-        html+=`<div class="cd" style="background:linear-gradient(135deg,#FFF8E1,#FFF3E0);border:1px solid #FFE0B2;border-left:4px solid #FFB74D"><div style="font-weight:700;font-size:14px;color:#4E342E">${a.title}</div><div style="font-size:13px;color:#6D4C41;margin-top:6px;line-height:1.5">${a.body}</div></div>`;
-      });
+    // Upcoming holidays
+    if(s.closedDates.length>0){
+      const upcoming = s.closedDates.filter(c=>c.closed_date>=dk(new Date())).sort((a,b)=>a.closed_date.localeCompare(b.closed_date));
+      if(upcoming.length>0){
+        html+=`<div class="st" style="margin-top:22px">📅 Upcoming Holidays</div>`;
+        upcoming.forEach(c=>{
+          const d=new Date(c.closed_date+'T12:00');
+          html+=`<div class="cd" style="padding:14px;display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#FFF8E1,#FFF3E0);border:1px solid #FFE0B2"><div style="width:44px;height:44px;border-radius:12px;background:#FFEBEE;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="font-size:9px;font-weight:700;color:#C62828;text-transform:uppercase">${d.toLocaleDateString('en-US',{month:'short'})}</div><div style="font-size:18px;font-weight:700;color:#C62828;font-family:'Fredoka';line-height:1">${d.getDate()}</div></div><div><div style="font-size:14px;font-weight:700;color:#4E342E">${c.label}</div><div style="font-size:12px;color:#8D6E63;margin-top:2px">${d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div></div></div>`;
+        });
+      }
     }
   }
 
@@ -397,12 +397,21 @@ function render(){
 
   // MORE
   if(s.view==='more'){
-    html+=`<div class="st">More</div>`;
+    html+=`<div class="st">Admin</div>`;
     html+=`<div class="cd" style="display:flex;align-items:center;gap:14px;margin-bottom:18px"><div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#FFE0B2,#FF8A65);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#E65100;font-family:'Fredoka'">${u.avatar_initials}</div><div><div style="display:flex;align-items:center;gap:8px"><div style="font-weight:700;font-size:16px;color:#4E342E;font-family:'Fredoka'">${u.display_name}</div>${isM?'<span class="mb">Manager</span>':''}</div><div style="font-size:13px;color:#8D6E63">${u.positions?.join(' / ')||u.location_name}</div></div></div>`;
 
     if(canEdit){
+      // ===== ANNOUNCEMENTS (first) =====
+      html+=`<div style="display:flex;justify-content:space-between;margin-bottom:12px"><div class="st" style="margin-bottom:0">📢 Announcements</div><button class="btn bp bsm" onclick="setState({showAnnouncementForm:true,announcementForm:{title:'',body:''}})">+ New</button></div>`;
+      if(s.showAnnouncementForm){
+        html+=`<div class="cd" style="border-color:#FF7043;border-width:2px;margin-bottom:14px"><div style="display:flex;flex-direction:column;gap:10px"><input class="ff" placeholder="Title" value="${s.announcementForm?.title||''}" oninput="setState({announcementForm:{...state.announcementForm,title:this.value}})"><textarea class="ff" rows="3" placeholder="Message" oninput="setState({announcementForm:{...state.announcementForm,body:this.value}})">${s.announcementForm?.body||''}</textarea><div style="display:flex;gap:8px"><button class="btn bp bsm" style="flex:1;justify-content:center" onclick="addAnnouncement()">Post</button><button class="btn bs bsm" onclick="setState({showAnnouncementForm:false})">Cancel</button></div></div></div>`;
+      }
+      if(s.announcements) s.announcements.forEach(a=>{
+        html+=`<div class="cd" style="padding:14px;display:flex;justify-content:space-between;border-left:4px solid #FFB74D"><div><div style="font-size:14px;font-weight:700;color:#4E342E">${a.title}</div><div style="font-size:12px;color:#8D6E63;margin-top:4px">${a.body.substring(0,80)}${a.body.length>80?'...':''}</div></div><button onclick="removeAnnouncement(${a.announcement_id})" style="background:none;border:none;font-size:16px;color:#E57373;cursor:pointer">✕</button></div>`;
+      });
+
       // ===== SHIFT TEMPLATES =====
-      html+=`<div style="display:flex;justify-content:space-between;margin-bottom:12px"><div class="st" style="margin-bottom:0">🕐 Shift Templates</div><button class="btn bp bsm" onclick="setState({showTplForm:true,editTpl:null,tplForm:{name:'',start:'9:00a',end:'5:00p'}})">+ New</button></div>`;
+      html+=`<div style="display:flex;justify-content:space-between;margin-top:22px;margin-bottom:12px"><div class="st" style="margin-bottom:0">🕐 Shift Templates</div><button class="btn bp bsm" onclick="setState({showTplForm:true,editTpl:null,tplForm:{name:'',start:'9:00a',end:'5:00p'}})">+ New</button></div>`;
       if(s.showTplForm) html+=renderTplForm();
       s.templates.forEach(t=>{html+=`<div class="cd" style="padding:14px;display:flex;justify-content:space-between"><div><div style="font-size:14px;font-weight:700;color:#4E342E">${t.template_name}</div><div style="font-size:13px;color:#8D6E63;margin-top:2px">${apiToApp(t.start_time)} – ${apiToApp(t.end_time)} · ${fmtHrs(t.hours_scheduled)}</div></div><div style="display:flex;gap:6px"><button onclick="setState({editTpl:state.templates.find(x=>x.template_id===${t.template_id}),tplForm:{name:'${t.template_name}',start:'${apiToApp(t.start_time)}',end:'${apiToApp(t.end_time)}'},showTplForm:true})" style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer">✏️</button><button onclick="deleteTpl(${t.template_id})" style="background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer">🗑️</button></div></div>`});
 
@@ -444,15 +453,6 @@ function render(){
       });
       if(s.schedulingRules.length===0) html+=`<div style="text-align:center;padding:20px;color:#BCAAA4;font-size:13px">No rules yet. Add rules to guide the auto-scheduler.</div>`;
 
-      // ===== ANNOUNCEMENTS =====
-      html+=`<div style="display:flex;justify-content:space-between;margin-top:22px;margin-bottom:12px"><div class="st" style="margin-bottom:0">📢 Announcements</div><button class="btn bp bsm" onclick="setState({showAnnouncementForm:true,announcementForm:{title:'',body:''}})">+ New</button></div>`;
-      if(s.showAnnouncementForm){
-        html+=`<div class="cd" style="border-color:#FF7043;border-width:2px;margin-bottom:14px"><div style="display:flex;flex-direction:column;gap:10px"><input class="ff" placeholder="Title" value="${s.announcementForm?.title||''}" oninput="setState({announcementForm:{...state.announcementForm,title:this.value}})"><textarea class="ff" rows="3" placeholder="Message" oninput="setState({announcementForm:{...state.announcementForm,body:this.value}})">${s.announcementForm?.body||''}</textarea><div style="display:flex;gap:8px"><button class="btn bp bsm" style="flex:1;justify-content:center" onclick="addAnnouncement()">Post</button><button class="btn bs bsm" onclick="setState({showAnnouncementForm:false})">Cancel</button></div></div></div>`;
-      }
-      if(s.announcements) s.announcements.forEach(a=>{
-        html+=`<div class="cd" style="padding:14px;display:flex;justify-content:space-between;border-left:4px solid #FFB74D"><div><div style="font-size:14px;font-weight:700;color:#4E342E">${a.title}</div><div style="font-size:12px;color:#8D6E63;margin-top:4px">${a.body.substring(0,80)}${a.body.length>80?'...':''}</div></div><button onclick="removeAnnouncement(${a.announcement_id})" style="background:none;border:none;font-size:16px;color:#E57373;cursor:pointer">✕</button></div>`;
-      });
-
       // ===== LOGIN ACTIVITY =====
       html+=`<div style="display:flex;justify-content:space-between;margin-top:22px;margin-bottom:12px"><div class="st" style="margin-bottom:0">👁️ Login Activity</div><button class="btn bs bsm" onclick="loadLoginLog()">Refresh</button></div>`;
       if(s.loginLog.length>0){
@@ -472,7 +472,7 @@ function render(){
   // Nav
   const tabs=[{id:'home',icon:'🏠',label:'Home'},{id:'schedule',icon:'📅',label:'Schedule'},{id:'timeoff',icon:'🌴',label:'Time Off'}];
   if(canEdit) tabs.push({id:'team',icon:'👥',label:'Team'});
-  tabs.push({id:'more',icon:'✂️',label:'More'});
+  tabs.push({id:'more',icon:'⚙️',label:'Admin'});
   html+=`<div class="nv">${tabs.map(t=>`<button class="${s.view===t.id?'a':''}" onclick="setState({view:'${t.id}'})"><span class="ni">${t.icon}</span>${t.label}</button>`).join('')}</div>`;
 
   // Modal
