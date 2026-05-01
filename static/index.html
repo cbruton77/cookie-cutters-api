@@ -112,12 +112,13 @@ async function apiFetch(path, opts={}){
 // ===== APP STATE =====
 let state = {
   view:'schedule', wkOff:0, mLoc:'All', curUser:null,
-  users:[], shifts:{}, templates:[], torList:[], closedDates:[], blackoutDates:[], locations:[],
-  modal:null, toast:null, showReqForm:false, showClosedForm:null, showTplForm:false,
+  users:[], shifts:{}, templates:[], torList:[], closedDates:[], blackoutDates:[], locations:[], announcements:[],
+  modal:null, toast:null, showReqForm:false, showClosedForm:null, showTplForm:false, showAnnouncementForm:false,
   reqForm:{startDate:'',endDate:'',reason:''},
   editUser:null, userForm:{firstName:'',lastName:'',positions:['Stylist'],location_id:''},
   confirmDel:null, dateForm:{date:'',startDate:'',endDate:'',label:''},
   tplForm:{name:'',start:'9:00a',end:'5:00p'}, editTpl:null,
+  announcementForm:{title:'',body:''},
 };
 
 function setState(updates){ Object.assign(state, updates); render(); }
@@ -129,13 +130,14 @@ async function loadAll(){
     const users = await apiFetch('/api/scheduling/users');
     const me = users.find(u=>u.user_id==DEV_USER_ID);
     const locs = [...new Map(users.map(u=>[u.location_id,{id:u.location_id,name:u.location_name}])).values()];
-    const [tpls,tor,closed,bo] = await Promise.all([
+    const [tpls,tor,closed,bo,ann] = await Promise.all([
       apiFetch('/api/scheduling/templates').catch(()=>[]),
       apiFetch('/api/scheduling/time-off').catch(()=>[]),
       apiFetch('/api/scheduling/admin/closed-dates').catch(()=>[]),
       apiFetch('/api/scheduling/admin/blackout-periods').catch(()=>[]),
+      apiFetch('/api/scheduling/admin/announcements').catch(()=>[]),
     ]);
-    setState({users,curUser:me,locations:locs,templates:tpls,torList:tor,closedDates:closed,blackoutDates:bo});
+    setState({users,curUser:me,locations:locs,templates:tpls,torList:tor,closedDates:closed,blackoutDates:bo,announcements:ann});
   }catch(e){document.getElementById('app').innerHTML=`<div class="loading"><h1>Cookie Cutters ✂️</h1><p style="color:#C62828">Connection error: ${e.message}</p><p style="font-size:12px;color:#8D6E63">Make sure the API server is running</p></div>`}
 }
 
@@ -201,12 +203,25 @@ async function addBlackout(){const f=state.dateForm;if(!f.startDate||!f.endDate|
 async function removeClosedDate(id){try{await apiFetch(`/api/scheduling/admin/closed-dates/${id}`,{method:'DELETE'});await loadAll();toast('Removed')}catch(e){toast(e.message)}}
 async function removeBlackout(id){try{await apiFetch(`/api/scheduling/admin/blackout-periods/${id}`,{method:'DELETE'});await loadAll();toast('Removed')}catch(e){toast(e.message)}}
 
+async function addAnnouncement(){
+  const f=state.announcementForm;if(!f.title||!f.body){toast('Fill in title and message');return}
+  try{await apiFetch('/api/scheduling/admin/announcements',{method:'POST',body:JSON.stringify({title:f.title,body:f.body})});setState({showAnnouncementForm:false,announcementForm:{title:'',body:''}});await loadAll();toast('Announcement posted!')}catch(e){toast(e.message)}
+}
+async function removeAnnouncement(id){try{await apiFetch(`/api/scheduling/admin/announcements/${id}`,{method:'DELETE'});await loadAll();toast('Removed')}catch(e){toast(e.message)}}
+
 // ===== RENDER =====
 function render(){
   const s=state;const u=s.curUser;if(!u)return;
   const isM=u.is_manager;
+  const EDITORS=[201,301,102,2]; // Chad, Heather, Marinna FW, Marinna ARL
+  const canEdit=EDITORS.includes(u.user_id);
   const vLoc=isM?s.mLoc:u.location_name;
-  const vUsers=s.users.filter(x=>!x.is_manager&&(vLoc==='All'||x.location_name===vLoc));
+  const vUsers=s.users.filter(x=>{
+    // Show user in grid if they have positions (even if manager)
+    if(x.positions.length===0) return false; // owners without positions don't show
+    if(vLoc==='All') return true;
+    return x.location_name===vLoc;
+  });
   const TODAY=new Date();const ws=wsf(TODAY,s.wkOff);const wd=wdays(ws);
   const wl=`${wd[0].toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${wd[6].toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`;
   const gs=(uid,day)=>s.shifts[`${uid}-${dk(day)}`]||null;
@@ -233,6 +248,37 @@ function render(){
     if(isM) html+=renderLS();
     html+=`<div class="cd" style="background:linear-gradient(135deg,#FFF3E0,#FFE8D5);border:1px solid #FFB74D"><div style="font-family:'Fredoka';font-weight:600;font-size:15px;color:#E65100;margin-bottom:8px">Dashboard</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div style="text-align:center"><div style="font-size:24px;font-weight:700;color:#F4511E;font-family:'Fredoka'">${vTOR.filter(r=>r.status==='PENDING').length}</div><div style="font-size:11px;color:#8D6E63">Pending</div></div><div style="text-align:center"><div style="font-size:24px;font-weight:700;color:#F4511E;font-family:'Fredoka'">${vUsers.length}</div><div style="font-size:11px;color:#8D6E63">Team</div></div></div></div>`;
     html+=`<button class="btn bs" style="width:100%;justify-content:center" onclick="setState({view:'schedule'})">View Schedule →</button>`;
+
+    // Upcoming holidays
+    if(s.closedDates.length>0){
+      const upcoming = s.closedDates.filter(c=>c.closed_date>=dk(new Date())).sort((a,b)=>a.closed_date.localeCompare(b.closed_date));
+      if(upcoming.length>0){
+        html+=`<div class="st" style="margin-top:22px">📅 Upcoming Holidays</div>`;
+        upcoming.forEach(c=>{
+          const d=new Date(c.closed_date+'T12:00');
+          html+=`<div class="cd" style="padding:14px;display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#FFF8E1,#FFF3E0);border:1px solid #FFE0B2"><div style="width:44px;height:44px;border-radius:12px;background:#FFEBEE;display:flex;flex-direction:column;align-items:center;justify-content:center"><div style="font-size:9px;font-weight:700;color:#C62828;text-transform:uppercase">${d.toLocaleDateString('en-US',{month:'short'})}</div><div style="font-size:18px;font-weight:700;color:#C62828;font-family:'Fredoka';line-height:1">${d.getDate()}</div></div><div><div style="font-size:14px;font-weight:700;color:#4E342E">${c.label}</div><div style="font-size:12px;color:#8D6E63;margin-top:2px">${d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div></div></div>`;
+        });
+      }
+    }
+
+    // Blackout periods
+    if(s.blackoutDates.length>0){
+      const upcoming = s.blackoutDates.filter(b=>b.end_date>=dk(new Date()));
+      if(upcoming.length>0){
+        html+=`<div class="st" style="margin-top:22px">🚫 Blackout Periods</div>`;
+        upcoming.forEach(b=>{
+          html+=`<div class="cd" style="padding:14px;border-left:4px solid #FFB74D;background:linear-gradient(135deg,#FFF3E0,#FFE8D5)"><div style="font-size:14px;font-weight:700;color:#E65100">${b.label}</div><div style="font-size:12px;color:#8D6E63;margin-top:4px">${new Date(b.start_date+'T12:00').toLocaleDateString('en-US',{month:'long',day:'numeric'})} – ${new Date(b.end_date+'T12:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div><div style="font-size:11px;color:#C62828;margin-top:4px;font-weight:600">No time-off requests allowed</div></div>`;
+        });
+      }
+    }
+
+    // Announcements
+    if(s.announcements&&s.announcements.length>0){
+      html+=`<div class="st" style="margin-top:22px">📢 Announcements</div>`;
+      s.announcements.forEach(a=>{
+        html+=`<div class="cd" style="background:linear-gradient(135deg,#FFF8E1,#FFF3E0);border:1px solid #FFE0B2;border-left:4px solid #FFB74D"><div style="font-weight:700;font-size:14px;color:#4E342E">${a.title}</div><div style="font-size:13px;color:#6D4C41;margin-top:6px;line-height:1.5">${a.body}</div></div>`;
+      });
+    }
   }
 
   // SCHEDULE
@@ -240,7 +286,7 @@ function render(){
     if(isM) html+=renderLS();
     html+=`<div class="wn"><button class="wnb" onclick="setState({wkOff:state.wkOff-1});loadShifts()">‹</button><div style="text-align:center"><div style="font-family:'Fredoka';font-weight:600;font-size:16px;color:#4E342E">${isM?'Team Schedule':'My Team'}</div><div style="font-size:12px;color:#8D6E63;margin-top:2px">${wl}</div></div><button class="wnb" onclick="setState({wkOff:state.wkOff+1});loadShifts()">›</button></div>`;
     if(s.wkOff!==0) html+=`<div style="text-align:center;margin-bottom:8px"><button onclick="setState({wkOff:0});loadShifts()" style="background:none;border:none;color:#FF7043;font-family:'DM Sans';font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline">Current week</button></div>`;
-    if(isM) html+=`<div class="eh"><span>💡</span><span><b>Tap shift</b> to edit · <b>Tap +</b> to add</span></div>`;
+    if(canEdit) html+=`<div class="eh"><span>💡</span><span><b>Tap shift</b> to edit · <b>Tap +</b> to add</span></div>`;
     html+=`<div style="display:flex;gap:10px;margin-bottom:12px"><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#1565C0"><span class="lgd" style="background:#90CAF9"></span> Stylist</div><div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#7B1FA2"><span class="lgd" style="background:#CE93D8"></span> Receptionist</div></div>`;
 
     // Grid
@@ -257,8 +303,8 @@ function render(){
         if(cl){html+=`<div class="gshc ccl"><span class="off" style="color:#E57373">✕</span></div>`;return}
         if(shift){
           const rc=RC[shift.role]||RC.Stylist;
-          html+=`<div class="gshc ${td?'td':''}" onclick="openModal('edit',${sty.user_id},'${d}','${fd(day).replace("'","\\'")}','${sty.display_name.replace("'","\\'")}',${JSON.stringify(sty.positions).replace(/"/g,"&quot;")},'${sty.location_id}')"><div class="sp" style="background:${rc.bg};color:${rc.color};border:1px solid ${rc.border}"><span>${shift.start}</span><span>${shift.end}</span><span style="font-size:7px;font-weight:700;margin-top:1px">${shift.role==='Receptionist'?'Rec.':'Stylist'}</span></div></div>`;
-        } else if(isM){
+          html+=`<div class="gshc ${td?'td':''}" onclick="${canEdit?`openModal('edit',${sty.user_id},'${d}','${fd(day).replace("'","\\'")}','${sty.display_name.replace("'","\\'")}',${JSON.stringify(sty.positions).replace(/"/g,"&quot;")},'${sty.location_id}')`:''}""><div class="sp" style="background:${rc.bg};color:${rc.color};border:1px solid ${rc.border}"><span>${shift.start}</span><span>${shift.end}</span><span style="font-size:7px;font-weight:700;margin-top:1px">${shift.role==='Receptionist'?'Rec.':'Stylist'}</span></div></div>`;
+        } else if(canEdit){
           html+=`<div class="gshc ${td?'td':''}" onclick="openModal('add',${sty.user_id},'${d}','${fd(day).replace("'","\\'")}','${sty.display_name.replace("'","\\'")}',${JSON.stringify(sty.positions).replace(/"/g,"&quot;")},'${sty.location_id}')"><button class="ea">+</button></div>`;
         } else {
           html+=`<div class="gshc ${td?'td':''}"><span class="off">OFF</span></div>`;
@@ -306,7 +352,7 @@ function render(){
   }
 
   // TEAM
-  if(s.view==='team'&&isM){
+  if(s.view==='team'&&canEdit){
     html+=renderLS();
     html+=`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><div class="st" style="margin-bottom:0">Team</div><button class="btn bp" onclick="setState({editUser:'new',userForm:{firstName:'',lastName:'',positions:['Stylist'],location_id:state.locations[0]?.id||''}})">+ Add</button></div>`;
     if(s.editUser) html+=renderUserForm();
@@ -324,10 +370,19 @@ function render(){
     html+=`<div class="st">More</div>`;
     html+=`<div class="cd" style="display:flex;align-items:center;gap:14px;margin-bottom:18px"><div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#FFE0B2,#FF8A65);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#E65100;font-family:'Fredoka'">${u.avatar_initials}</div><div><div style="display:flex;align-items:center;gap:8px"><div style="font-weight:700;font-size:16px;color:#4E342E;font-family:'Fredoka'">${u.display_name}</div>${isM?'<span class="mb">Manager</span>':''}</div><div style="font-size:13px;color:#8D6E63">${u.positions?.join(' / ')||u.location_name}</div></div></div>`;
 
-    if(isM){
+    if(canEdit){
       html+=`<div style="display:flex;justify-content:space-between;margin-bottom:12px"><div class="st" style="margin-bottom:0">🕐 Shifts</div><button class="btn bp bsm" onclick="setState({showTplForm:true,editTpl:null,tplForm:{name:'',start:'9:00a',end:'5:00p'}})">+ New</button></div>`;
       if(s.showTplForm) html+=renderTplForm();
       s.templates.forEach(t=>{html+=`<div class="cd" style="padding:14px;display:flex;justify-content:space-between"><div><div style="font-size:14px;font-weight:700;color:#4E342E">${t.template_name}</div><div style="font-size:13px;color:#8D6E63;margin-top:2px">${apiToApp(t.start_time)} – ${apiToApp(t.end_time)} · ${fmtHrs(t.hours_scheduled)}</div></div><div style="display:flex;gap:6px"><button onclick="setState({editTpl:state.templates.find(x=>x.template_id===${t.template_id}),tplForm:{name:'${t.template_name}',start:'${apiToApp(t.start_time)}',end:'${apiToApp(t.end_time)}'},showTplForm:true})" style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer">✏️</button><button onclick="deleteTpl(${t.template_id})" style="background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer">🗑️</button></div></div>`});
+
+      // Announcements management
+      html+=`<div style="display:flex;justify-content:space-between;margin-top:22px;margin-bottom:12px"><div class="st" style="margin-bottom:0">📢 Announcements</div><button class="btn bp bsm" onclick="setState({showAnnouncementForm:true,announcementForm:{title:'',body:''}})">+ New</button></div>`;
+      if(s.showAnnouncementForm){
+        html+=`<div class="cd" style="border-color:#FF7043;border-width:2px;margin-bottom:14px"><div style="display:flex;flex-direction:column;gap:10px"><input class="ff" placeholder="Title" value="${s.announcementForm?.title||''}" oninput="setState({announcementForm:{...state.announcementForm,title:this.value}})"><textarea class="ff" rows="3" placeholder="Message" oninput="setState({announcementForm:{...state.announcementForm,body:this.value}})">${s.announcementForm?.body||''}</textarea><div style="display:flex;gap:8px"><button class="btn bp bsm" style="flex:1;justify-content:center" onclick="addAnnouncement()">Post</button><button class="btn bs bsm" onclick="setState({showAnnouncementForm:false})">Cancel</button></div></div></div>`;
+      }
+      if(s.announcements) s.announcements.forEach(a=>{
+        html+=`<div class="cd" style="padding:14px;display:flex;justify-content:space-between;border-left:4px solid #FFB74D"><div><div style="font-size:14px;font-weight:700;color:#4E342E">${a.title}</div><div style="font-size:12px;color:#8D6E63;margin-top:4px">${a.body.substring(0,80)}${a.body.length>80?'...':''}</div></div><button onclick="removeAnnouncement(${a.announcement_id})" style="background:none;border:none;font-size:16px;color:#E57373;cursor:pointer">✕</button></div>`;
+      });
     }
     html+=`<div style="text-align:center;margin-top:24px;padding-bottom:20px"><div style="font-family:'Fredoka';font-size:16px;color:#E65100;font-weight:600">Cookie Cutters ✂️</div><div style="font-size:11px;color:#BCAAA4;margin-top:4px">Staff App v1.0 · Live</div></div>`;
   }
@@ -336,7 +391,7 @@ function render(){
 
   // Nav
   const tabs=[{id:'home',icon:'🏠',label:'Home'},{id:'schedule',icon:'📅',label:'Schedule'},{id:'timeoff',icon:'🌴',label:'Time Off'}];
-  if(isM) tabs.push({id:'team',icon:'👥',label:'Team'});
+  if(canEdit) tabs.push({id:'team',icon:'👥',label:'Team'});
   tabs.push({id:'more',icon:'✂️',label:'More'});
   html+=`<div class="nv">${tabs.map(t=>`<button class="${s.view===t.id?'a':''}" onclick="setState({view:'${t.id}'})"><span class="ni">${t.icon}</span>${t.label}</button>`).join('')}</div>`;
 

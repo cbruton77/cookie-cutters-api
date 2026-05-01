@@ -98,3 +98,45 @@ async def remove_blackout_period(
 ):
     db.execute("DELETE FROM BLACKOUT_PERIODS WHERE BLACKOUT_ID = %s", [blackout_id])
     return {"message": "Blackout period removed"}
+
+
+# ===== ANNOUNCEMENTS =====
+
+@router.get("/announcements")
+async def list_announcements(
+    user: AuthenticatedUser = Depends(get_current_user),
+    db: SnowflakeSession = Depends(get_db),
+):
+    rows = db.execute_all("""
+        SELECT ANNOUNCEMENT_ID, TITLE, BODY, CREATED_AT
+        FROM ANNOUNCEMENTS
+        WHERE IS_ACTIVE = TRUE
+        ORDER BY CREATED_AT DESC
+    """)
+    return [
+        {"announcement_id": r["ANNOUNCEMENT_ID"], "title": r["TITLE"], "body": r["BODY"],
+         "created_at": str(r["CREATED_AT"])} for r in rows
+    ]
+
+
+@router.post("/announcements", response_model=dict)
+async def add_announcement(
+    data: dict,
+    user: AuthenticatedUser = Depends(require_manager),
+    db: SnowflakeSession = Depends(get_db),
+):
+    db.execute("""
+        INSERT INTO ANNOUNCEMENTS (TITLE, BODY, CREATED_BY)
+        VALUES (%s, %s, %s)
+    """, [data["title"], data["body"], user.user_id])
+    return {"message": "Announcement posted"}
+
+
+@router.delete("/announcements/{announcement_id}", response_model=dict)
+async def remove_announcement(
+    announcement_id: int,
+    user: AuthenticatedUser = Depends(require_manager),
+    db: SnowflakeSession = Depends(get_db),
+):
+    db.execute("UPDATE ANNOUNCEMENTS SET IS_ACTIVE = FALSE WHERE ANNOUNCEMENT_ID = %s", [announcement_id])
+    return {"message": "Announcement removed"}
