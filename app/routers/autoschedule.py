@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/scheduling", tags=["Auto-Schedule"])
 
 CLAUDE_API = "https://api.anthropic.com/v1/messages"
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
+CLAUDE_MODEL = "claude-sonnet-4-6"
 
 
 def _gather_context(db: SnowflakeSession, location_id: str, target_month: int, target_year: int):
