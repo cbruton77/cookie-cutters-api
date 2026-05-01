@@ -246,9 +246,14 @@ async function generateSchedule(locationId, month, year){
   setState({generating:true});
   try{
     const result = await apiFetch('/api/scheduling/auto-generate',{method:'POST',body:JSON.stringify({location_id:locationId,month:parseInt(month),year:parseInt(year)})});
-    const drafts = await apiFetch(`/api/scheduling/drafts/${result.batch_id}`);
-    setState({generating:false,draftBatchId:result.batch_id,draftShifts:drafts});
-    toast(`Generated ${result.shifts_generated} shifts!`);
+    setState({generating:false});
+    toast(`Created ${result.shifts_generated} shifts for ${result.location}!`);
+    // Jump to the schedule view at the generated month
+    const targetDate = new Date(parseInt(year), parseInt(month)-1, 1);
+    const today = new Date();
+    const diffWeeks = Math.round((targetDate - today) / (7*24*60*60*1000));
+    setState({view:'schedule', wkOff:diffWeeks, mLoc:result.location});
+    await loadShifts();
   }catch(e){setState({generating:false});toast(e.message)}
 }
 
@@ -489,94 +494,9 @@ function render(){
       if(filteredRules.length===0) html+=`<div style="text-align:center;padding:20px;color:#BCAAA4;font-size:13px">No rules yet. Add rules to guide the auto-scheduler.</div>`;
 
       // ===== AUTO-SCHEDULE GENERATOR =====
-      html+=`<div style="margin-top:22px;margin-bottom:12px"><div class="st" style="margin-bottom:4px">🤖 Auto-Schedule Generator</div><div style="font-size:12px;color:#8D6E63;margin-bottom:12px;line-height:1.5">Use AI to generate an optimized monthly schedule based on historical data, demand patterns, and scheduling rules.</div></div>`;
+      html+=`<div style="margin-top:22px;margin-bottom:12px"><div class="st" style="margin-bottom:4px">🤖 Auto-Schedule Generator</div><div style="font-size:12px;color:#8D6E63;margin-bottom:12px;line-height:1.5">AI analyzes your haircut data, staffing patterns, and scheduling rules to build an optimized monthly schedule. Shifts are created directly on the Schedule tab where you can review and adjust them.</div></div>`;
 
-      if(s.draftBatchId && s.draftShifts.length>0){
-        // Show draft review
-        html+=`<div class="cd" style="background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border:2px solid #81C784;padding:18px"><div style="font-family:'Fredoka';font-weight:600;font-size:16px;color:#2E7D32;margin-bottom:4px">📋 Draft Schedule Ready</div><div style="font-size:13px;color:#4E342E;margin-bottom:14px">${s.draftShifts.length} shifts generated for the month</div>`;
-
-        // Group by week
-        const weeks={};
-        s.draftShifts.forEach(d=>{
-          const dt=new Date(d.SHIFT_DATE+'T12:00');
-          const mon=new Date(dt);mon.setDate(mon.getDate()-((mon.getDay()+6)%7)); // Get Monday
-          const wk=dk(mon);
-          if(!weeks[wk]) weeks[wk]={start:mon,days:{}};
-          const dayKey=d.SHIFT_DATE;
-          if(!weeks[wk].days[dayKey]) weeks[wk].days[dayKey]={staff:[],totalHrs:0,date:dt};
-          weeks[wk].days[dayKey].staff.push(d);
-          weeks[wk].days[dayKey].totalHrs+=(d.HOURS_SCHEDULED||0);
-        });
-
-        const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-        Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([wk,wkData],wi)=>{
-          const wkStart=wkData.start;
-          const wkEnd=new Date(wkStart);wkEnd.setDate(wkEnd.getDate()+6);
-          const wkLabel=`${wkStart.toLocaleDateString('en-US',{month:'short',day:'numeric'})} – ${wkEnd.toLocaleDateString('en-US',{month:'short',day:'numeric'})}`;
-          let wkTotalHrs=0;let wkTotalShifts=0;
-
-          html+=`<div style="margin-top:${wi>0?'16px':'6px'};margin-bottom:8px;font-family:'Fredoka';font-weight:600;font-size:14px;color:#2E7D32">Week: ${wkLabel}</div>`;
-
-          // Day-by-day grid
-          const allDays=[];
-          for(let i=0;i<7;i++){const d=new Date(wkStart);d.setDate(d.getDate()+i);allDays.push(d)}
-
-          allDays.forEach(day=>{
-            const dayData=wkData.days[dk(day)];
-            if(!dayData) return;
-            const staffCount=dayData.staff.length;
-            const stylists=dayData.staff.filter(s=>s.POSITION_NAME==='Stylist').length;
-            const receptionists=dayData.staff.filter(s=>s.POSITION_NAME==='Receptionist').length;
-            wkTotalHrs+=dayData.totalHrs;
-            wkTotalShifts+=staffCount;
-
-            html+=`<div style="background:rgba(255,255,255,0.7);border-radius:10px;padding:10px 12px;margin-bottom:4px;border:1px solid rgba(46,125,50,0.15)">`;
-            html+=`<div style="display:flex;justify-content:space-between;align-items:center">`;
-            html+=`<div><span style="font-size:13px;font-weight:700;color:#2E7D32">${dayNames[day.getDay()]} ${day.getDate()}</span>`;
-            html+=`<span style="font-size:11px;color:#66BB6A;margin-left:8px">${staffCount} staff</span></div>`;
-            html+=`<div style="display:flex;gap:6px;align-items:center">`;
-            if(stylists>0) html+=`<span style="background:#E3F2FD;color:#1565C0;padding:2px 6px;border-radius:6px;font-size:10px;font-weight:600">${stylists} Stylist${stylists>1?'s':''}</span>`;
-            if(receptionists>0) html+=`<span style="background:#F3E5F5;color:#7B1FA2;padding:2px 6px;border-radius:6px;font-size:10px;font-weight:600">${receptionists} Rec</span>`;
-            html+=`<span style="font-size:11px;font-weight:700;color:#2E7D32">${fmtHrs(dayData.totalHrs)}</span>`;
-            html+=`</div></div>`;
-
-            // Show who's working
-            html+=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">`;
-            dayData.staff.sort((a,b)=>a.DISPLAY_NAME.localeCompare(b.DISPLAY_NAME)).forEach(s=>{
-              const isRec=s.POSITION_NAME==='Receptionist';
-              html+=`<span style="background:${isRec?'#F3E5F5':'#E3F2FD'};color:${isRec?'#7B1FA2':'#1565C0'};padding:2px 8px;border-radius:8px;font-size:10px;font-weight:600">${s.DISPLAY_NAME}</span>`;
-            });
-            html+=`</div></div>`;
-          });
-
-          // Week summary
-          html+=`<div style="display:flex;justify-content:flex-end;padding:4px 0;margin-bottom:2px"><span style="font-size:12px;font-weight:700;color:#1B5E20">Week total: ${wkTotalShifts} shifts · ${fmtHrs(wkTotalHrs)}</span></div>`;
-        });
-
-        // Employee monthly summary (compact)
-        html+=`<div style="margin-top:14px;padding-top:12px;border-top:2px solid rgba(46,125,50,0.2)"><div style="font-size:12px;font-weight:700;color:#2E7D32;margin-bottom:8px">📊 Employee Monthly Summary</div>`;
-        const byEmp={};
-        s.draftShifts.forEach(d=>{
-          if(!byEmp[d.DISPLAY_NAME]) byEmp[d.DISPLAY_NAME]={shifts:0,hours:0,positions:new Set(),weeklyHrs:{}};
-          byEmp[d.DISPLAY_NAME].shifts++;
-          byEmp[d.DISPLAY_NAME].hours+=d.HOURS_SCHEDULED||0;
-          byEmp[d.DISPLAY_NAME].positions.add(d.POSITION_NAME);
-          const dt=new Date(d.SHIFT_DATE+'T12:00');
-          const wkNum=Math.ceil(dt.getDate()/7);
-          if(!byEmp[d.DISPLAY_NAME].weeklyHrs[wkNum]) byEmp[d.DISPLAY_NAME].weeklyHrs[wkNum]=0;
-          byEmp[d.DISPLAY_NAME].weeklyHrs[wkNum]+=(d.HOURS_SCHEDULED||0);
-        });
-        Object.entries(byEmp).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([name,info])=>{
-          const avgWeekly=info.hours/Object.keys(info.weeklyHrs).length;
-          const inRange=avgWeekly>=34&&avgWeekly<=38;
-          html+=`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(46,125,50,0.1)"><div><span style="font-size:12px;font-weight:600;color:#2E7D32">${name}</span></div><div style="text-align:right"><span style="font-size:11px;color:#4E342E">${info.shifts} shifts</span><span style="font-size:11px;font-weight:700;margin-left:8px;color:${inRange?'#2E7D32':'#E65100'}">~${fmtHrs(avgWeekly)}/wk</span></div></div>`;
-        });
-        html+=`</div>`;
-
-        html+=`<div style="display:flex;gap:8px;margin-top:14px"><button class="btn bp" style="flex:1;justify-content:center" onclick="approveDraft()">✅ Approve & Publish</button><button class="btn bdn" style="flex:1;justify-content:center" onclick="discardDraft()">❌ Discard</button></div>`;
-        html+=`</div>`;
-      } else {
-        // Show generation form
+      {
         const nextMonth = new Date();nextMonth.setMonth(nextMonth.getMonth()+1);
         const defMonth = nextMonth.getMonth()+1;
         const defYear = nextMonth.getFullYear();
@@ -588,8 +508,10 @@ function render(){
           html+=`<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;color:#8D6E63;display:block;margin-bottom:4px">Location</label><select id="ag-loc" class="ff">${s.locations.map(l=>`<option value="${l.id}">${l.name}</option>`).join('')}</select></div>`;
         }
         html+=`<button class="btn bp" style="width:100%;justify-content:center;padding:14px;font-size:16px" onclick="const m=document.getElementById('ag-month').value;const y=document.getElementById('ag-year').value;const l=${vLoc!=='All'?`'${selLoc?.id||''}'`:`document.getElementById('ag-loc').value`};generateSchedule(l,m,y)" ${s.generating?'disabled':''}>`;
-        html+=s.generating?'<span style="animation:spin 1s linear infinite;display:inline-block">⚡</span> Generating... (this may take a minute)':'🤖 Generate Schedule';
-        html+=`</button></div>`;
+        html+=s.generating?'<span style="animation:spin 1s linear infinite;display:inline-block">⚡</span> Generating... (takes about a minute)':'🤖 Generate Schedule';
+        html+=`</button>`;
+        html+=`<div style="font-size:11px;color:#8D6E63;margin-top:10px;text-align:center">Shifts will appear on the Schedule tab. Edit or remove any shift by tapping it.</div>`;
+        html+=`</div>`;
       }
 
       // ===== LOGIN ACTIVITY =====

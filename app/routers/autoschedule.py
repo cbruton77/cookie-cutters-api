@@ -24,12 +24,13 @@ def _gather_context(db: SnowflakeSession, location_id: str, target_month: int, t
     # 1. Employees at this location with positions
     employees = db.execute_all("""
         SELECT u.USER_ID, u.FIRST_NAME, u.LAST_NAME, u.DISPLAY_NAME, u.IS_MANAGER,
+               u.EMPLOYMENT_TYPE,
                LISTAGG(p.POSITION_NAME, ', ') WITHIN GROUP (ORDER BY p.POSITION_NAME) AS POSITIONS
         FROM USERS u
         JOIN USER_POSITIONS up ON u.USER_ID = up.USER_ID
         JOIN POSITIONS p ON up.POSITION_ID = p.POSITION_ID
         WHERE u.LOCATION_ID = %s AND u.IS_ACTIVE = TRUE
-        GROUP BY u.USER_ID, u.FIRST_NAME, u.LAST_NAME, u.DISPLAY_NAME, u.IS_MANAGER
+        GROUP BY u.USER_ID, u.FIRST_NAME, u.LAST_NAME, u.DISPLAY_NAME, u.IS_MANAGER, u.EMPLOYMENT_TYPE
         ORDER BY u.DISPLAY_NAME
     """, [location_id])
 
@@ -152,7 +153,6 @@ def _gather_context(db: SnowflakeSession, location_id: str, target_month: int, t
 def _build_prompt(context: dict, location_name: str) -> str:
     """Build the Claude prompt with all scheduling context."""
 
-    # Build the list of days in the target month
     first = date.fromisoformat(context["first_of_month"])
     last = date.fromisoformat(context["last_of_month"])
     days = []
@@ -161,61 +161,64 @@ def _build_prompt(context: dict, location_name: str) -> str:
         days.append({"date": str(d), "day_name": d.strftime("%A"), "dow": d.weekday()})
         d += timedelta(days=1)
 
-    closed_dates_set = {c["CLOSED_DATE"] for c in context["closed_dates"]}
+    prompt = f"""You are an expert staff scheduler for Cookie Cutters Haircuts for Kids in {location_name}. Generate a COMPLETE optimized schedule for every day in the month starting {context['first_of_month']}.
 
-    prompt = f"""You are an expert staff scheduler for Cookie Cutters Haircuts for Kids, a children's hair salon franchise. Generate an optimized monthly schedule for {location_name} for the month starting {context['first_of_month']}.
-
-## EMPLOYEES AVAILABLE
+## EMPLOYEES (with employment type)
 {json.dumps(context['employees'], indent=2, default=str)}
 
 ## BUSINESS HOURS
 {json.dumps(context['business_hours'], indent=2, default=str)}
 
-## SCHEDULING RULES (MUST FOLLOW)
+## SCHEDULING RULES
 {json.dumps(context['scheduling_rules'], indent=2, default=str)}
 
-## CLOSED DATES (DO NOT SCHEDULE)
+## CLOSED DATES — DO NOT SCHEDULE ANYONE
 {json.dumps(context['closed_dates'], indent=2, default=str)}
 
-## APPROVED TIME OFF (DO NOT SCHEDULE THESE EMPLOYEES ON THESE DATES)
+## APPROVED TIME OFF — DO NOT SCHEDULE THESE PEOPLE ON THESE DATES
 {json.dumps(context['time_off'], indent=2, default=str)}
 
-## HISTORICAL HAIRCUT DATA — Same month last year (demand by day of week)
+## DEMAND DATA — Haircuts per day and staffing metrics (CRITICAL FOR STAFFING DECISIONS)
+Historical same-month data:
 {json.dumps(context['historical_by_day'], indent=2, default=str)}
 
-## RECENT 3-MONTH TRENDS (current demand levels)
+Recent 3-month trends:
 {json.dumps(context['recent_trends'], indent=2, default=str)}
 
-## EMPLOYEE WORK PATTERNS (how often each person has worked each day, last 6 months)
+## EMPLOYEE WORK PATTERNS — Who typically works which days (last 6 months)
 {json.dumps(context['employee_patterns'], indent=2, default=str)}
 
-## DAYS TO SCHEDULE
+## STAFFING FORMULA (USE THIS)
+A stylist handles ~1.5-2.0 haircuts per hour. Use this to calculate required stylists:
+  Required stylists = ceil(avg_daily_haircuts / operating_hours / 1.7)
+
+Based on the demand data above, target these MINIMUM stylist counts:
+- Saturday (highest demand): 5-6 stylists
+- Friday & Sunday (high demand): 5 stylists  
+- Monday & Thursday (medium): 4 stylists
+- Tuesday & Wednesday (lowest): 3-4 stylists
+Plus ALWAYS 1 Receptionist (Kaitlin as Receptionist does NOT count as stylist)
+
+## SHIFT TIMES (fixed based on business hours, 10 min before open)
+- Monday-Friday: 09:50 to 18:00 (8h10m)
+- Saturday: 08:50 to 17:00 (8h10m)
+- Sunday: 11:50 to 17:00 (5h10m)
+
+## EMPLOYEE RULES
+- FULL_TIME: Schedule 5 days/week, target 35-37 hours, give 2 days off
+- PART_TIME: Schedule 2-3 days/week, target 15-25 hours
+- Audrey McDonald: MAX 3 consecutive working days, then must have day off
+- Give every employee at least 1 Saturday AND 1 Sunday off per month
+- Match employees to days they historically work when possible
+
+## ALL DAYS TO SCHEDULE
 {json.dumps(days, indent=2)}
 
-## INSTRUCTIONS
-
-Generate a complete monthly schedule following these principles:
-
-1. **Demand-based staffing**: Schedule MORE stylists on high-demand days (Saturdays, Fridays) and FEWER on low-demand days (Tuesdays, Wednesdays). Use the haircut data to determine optimal staffing.
-2. **Respect all scheduling rules**: Max consecutive days, weekly hours targets, weekend days off, shift start offsets.
-3. **Honor work patterns**: Schedule employees on days they typically work based on historical patterns. Don't suddenly put someone on a day they've never worked.
-4. **Receptionist coverage**: Ensure at least one Receptionist is scheduled every day the salon is open. Kaitlin Hoover can work as either Stylist or Receptionist.
-5. **Weekly hours**: Target 35-37 hours per full-time employee per week. Give each employee 1-2 days off per week.
-6. **Weekend balance**: Try to give everyone at least 1 Saturday AND 1 Sunday off per month.
-7. **No scheduling on closed dates or approved time-off dates**.
-8. **Shift times**: Use the business hours with the shift start offset (-10 minutes). Weekday = 9:50-18:00, Saturday = 8:50-17:00, Sunday = 11:50-17:00.
-
-## OUTPUT FORMAT
-
-Return ONLY a valid JSON array. Each element must have exactly these fields:
-- "user_id": integer (from the employees list)
-- "shift_date": "YYYY-MM-DD"
-- "start_time": "HH:MM:SS" (24-hour)
-- "end_time": "HH:MM:SS" (24-hour)
-- "position": "Stylist" or "Receptionist"
-- "reasoning": brief explanation of why this assignment was made (1 sentence)
-
-Do NOT include any text before or after the JSON array. Just the raw JSON array."""
+## OUTPUT — CRITICAL INSTRUCTIONS
+1. Return ONLY a JSON array, no other text whatsoever
+2. Generate shifts for EVERY SINGLE DAY of the month (except closed dates)
+3. Every element must have: user_id (int), shift_date (YYYY-MM-DD), start_time (HH:MM:SS), end_time (HH:MM:SS), position (Stylist/Receptionist), reasoning (1 sentence)
+4. Do NOT stop early. The complete month must have shifts for all {len(days)} days."""
 
     return prompt
 
@@ -293,7 +296,7 @@ async def auto_generate_schedule(
         logger.error(f"Failed to parse AI response: {e}\n{ai_text[:500]}")
         raise HTTPException(status_code=500, detail="Failed to parse AI-generated schedule")
 
-    # Write to DRAFT_SCHEDULES
+    # Write directly to SHIFTS table
     batch_id = str(uuid.uuid4())[:8]
     position_map = {}
     pos_rows = db.execute_all("SELECT POSITION_ID, POSITION_NAME FROM POSITIONS")
@@ -301,8 +304,9 @@ async def auto_generate_schedule(
         position_map[p["POSITION_NAME"]] = p["POSITION_ID"]
 
     inserted = 0
+    skipped = 0
     for shift in shifts:
-        pos_id = position_map.get(shift["position"], 1)
+        pos_id = position_map.get(shift.get("position", "Stylist"), 1)
         start = shift["start_time"]
         end = shift["end_time"]
 
@@ -312,13 +316,40 @@ async def auto_generate_schedule(
         hours = (eh + em / 60) - (sh + sm / 60)
 
         try:
+            # Check for existing shift (avoid duplicates)
+            existing = db.execute_one("""
+                SELECT SHIFT_ID FROM SHIFTS 
+                WHERE USER_ID = %s AND SHIFT_DATE = %s
+            """, [shift["user_id"], shift["shift_date"]])
+            
+            if existing:
+                skipped += 1
+                continue
+
             db.execute("""
-                INSERT INTO DRAFT_SCHEDULES (BATCH_ID, LOCATION_ID, USER_ID, SHIFT_DATE, START_TIME, END_TIME, POSITION_ID, HOURS_SCHEDULED, AI_REASONING)
+                INSERT INTO SHIFTS (USER_ID, LOCATION_ID, SHIFT_DATE, START_TIME, END_TIME, POSITION_ID, HOURS_SCHEDULED, CREATED_BY, NOTES)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, [batch_id, location_id, shift["user_id"], shift["shift_date"], start, end, pos_id, round(hours, 2), shift.get("reasoning", "")])
+            """, [shift["user_id"], location_id, shift["shift_date"], start, end, pos_id, 
+                  round(hours, 2), user.user_id, f"AI-generated ({batch_id}): {shift.get('reasoning', '')}"])
             inserted += 1
         except Exception as e:
             logger.error(f"Failed to insert shift: {e}")
+
+    # Also save to drafts for record-keeping
+    for shift in shifts:
+        pos_id = position_map.get(shift.get("position", "Stylist"), 1)
+        start = shift["start_time"]
+        end = shift["end_time"]
+        sh, sm = map(int, start.split(":")[0:2])
+        eh, em = map(int, end.split(":")[0:2])
+        hours = (eh + em / 60) - (sh + sm / 60)
+        try:
+            db.execute("""
+                INSERT INTO DRAFT_SCHEDULES (BATCH_ID, LOCATION_ID, USER_ID, SHIFT_DATE, START_TIME, END_TIME, POSITION_ID, HOURS_SCHEDULED, AI_REASONING, STATUS)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'APPROVED')
+            """, [batch_id, location_id, shift["user_id"], shift["shift_date"], start, end, pos_id, round(hours, 2), shift.get("reasoning", "")])
+        except Exception:
+            pass
 
     return {
         "batch_id": batch_id,
@@ -326,7 +357,8 @@ async def auto_generate_schedule(
         "month": target_month,
         "year": target_year,
         "shifts_generated": inserted,
-        "message": f"Generated {inserted} shifts for {location_name}"
+        "shifts_skipped": skipped,
+        "message": f"Created {inserted} shifts for {location_name} (skipped {skipped} existing)"
     }
 
 
