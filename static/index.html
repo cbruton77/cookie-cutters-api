@@ -500,16 +500,21 @@ function render(){
         const nextMonth = new Date();nextMonth.setMonth(nextMonth.getMonth()+1);
         const defMonth = nextMonth.getMonth()+1;
         const defYear = nextMonth.getFullYear();
-        const selLoc = vLoc!=='All' ? s.locations.find(l=>l.name===vLoc) : s.locations[0];
 
-        html+=`<div class="cd" style="border:2px solid #FF7043;background:linear-gradient(135deg,#FFF3E0,#FFE8D5)">`;
-        html+=`<div style="display:flex;gap:8px;margin-bottom:12px"><div style="flex:1"><label style="font-size:11px;font-weight:600;color:#8D6E63;display:block;margin-bottom:4px">Month</label><select id="ag-month" class="ff">${[['1','January'],['2','February'],['3','March'],['4','April'],['5','May'],['6','June'],['7','July'],['8','August'],['9','September'],['10','October'],['11','November'],['12','December']].map(m=>`<option value="${m[0]}" ${parseInt(m[0])===defMonth?'selected':''}>${m[1]}</option>`).join('')}</select></div><div style="flex:1"><label style="font-size:11px;font-weight:600;color:#8D6E63;display:block;margin-bottom:4px">Year</label><select id="ag-year" class="ff"><option value="2026" ${defYear===2026?'selected':''}>2026</option><option value="2027" ${defYear===2027?'selected':''}>2027</option></select></div></div>`;
-        html+=`<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;color:#8D6E63;display:block;margin-bottom:4px">Location</label><select id="ag-loc" class="ff" onchange="state.autoLoc=this.value">${s.locations.map(l=>`<option value="${l.id}" ${(s.autoLoc===l.id||(s.autoLoc===null&&vLoc!=='All'&&l.name===vLoc))?'selected':''}>${l.name}</option>`).join('')}</select></div>`;
-        html+=`<button class="btn bp" style="width:100%;justify-content:center;padding:14px;font-size:16px" onclick="const m=document.getElementById('ag-month').value;const y=document.getElementById('ag-year').value;const l=document.getElementById('ag-loc').value;generateSchedule(l,m,y)" ${s.generating?'disabled':''}>`;
-        html+=s.generating?'<span style="animation:spin 1s linear infinite;display:inline-block">⚡</span> Generating... (takes about a minute)':'🤖 Generate Schedule';
-        html+=`</button>`;
-        html+=`<div style="font-size:11px;color:#8D6E63;margin-top:10px;text-align:center">Shifts will appear on the Schedule tab. Edit or remove any shift by tapping it.</div>`;
-        html+=`</div>`;
+        // For auto-scheduler, must have specific location selected at top
+        if(vLoc==='All'){
+          html+=`<div class="cd" style="border:2px solid #FFB74D;background:linear-gradient(135deg,#FFF8E1,#FFF3E0);text-align:center;padding:24px"><div style="font-size:16px;margin-bottom:8px">👆</div><div style="font-size:14px;font-weight:600;color:#E65100;margin-bottom:4px">Select a location first</div><div style="font-size:12px;color:#8D6E63">Use the Location dropdown above to choose Fort Worth or Arlington before generating a schedule.</div></div>`;
+        } else {
+          const selLoc = s.locations.find(l=>l.name===vLoc);
+          html+=`<div class="cd" style="border:2px solid #FF7043;background:linear-gradient(135deg,#FFF3E0,#FFE8D5)">`;
+          html+=`<div style="font-size:13px;font-weight:600;color:#E65100;margin-bottom:12px">📍 Generating for: ${vLoc}</div>`;
+          html+=`<div style="display:flex;gap:8px;margin-bottom:12px"><div style="flex:1"><label style="font-size:11px;font-weight:600;color:#8D6E63;display:block;margin-bottom:4px">Month</label><select id="ag-month" class="ff">${[['1','January'],['2','February'],['3','March'],['4','April'],['5','May'],['6','June'],['7','July'],['8','August'],['9','September'],['10','October'],['11','November'],['12','December']].map(m=>`<option value="${m[0]}" ${parseInt(m[0])===defMonth?'selected':''}>${m[1]}</option>`).join('')}</select></div><div style="flex:1"><label style="font-size:11px;font-weight:600;color:#8D6E63;display:block;margin-bottom:4px">Year</label><select id="ag-year" class="ff"><option value="2026" ${defYear===2026?'selected':''}>2026</option><option value="2027" ${defYear===2027?'selected':''}>2027</option></select></div></div>`;
+          html+=`<button class="btn bp" style="width:100%;justify-content:center;padding:14px;font-size:16px" onclick="const m=document.getElementById('ag-month').value;const y=document.getElementById('ag-year').value;generateSchedule('${selLoc?.id||''}',m,y)" ${s.generating?'disabled':''}>`;
+          html+=s.generating?'<span style="animation:spin 1s linear infinite;display:inline-block">⚡</span> Generating... (takes about a minute)':'🤖 Generate Schedule for '+vLoc;
+          html+=`</button>`;
+          html+=`<div style="font-size:11px;color:#8D6E63;margin-top:10px;text-align:center">Shifts will appear on the Schedule tab. Edit or remove any shift by tapping it.</div>`;
+          html+=`</div>`;
+        }
       }
 
       // ===== LOGIN ACTIVITY =====
