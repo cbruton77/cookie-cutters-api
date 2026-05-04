@@ -305,7 +305,11 @@ async def auto_generate_schedule(
             json={
                 "model": CLAUDE_MODEL,
                 "max_tokens": 32000,
-                "messages": [{"role": "user", "content": prompt}],
+                "system": "You are a JSON API. You MUST respond with ONLY a valid JSON array. No text, no explanation, no markdown, no thinking out loud. Start your response with [ and end with ]. Nothing else.",
+                "messages": [
+                    {"role": "user", "content": prompt},
+                    {"role": "assistant", "content": "["}
+                ],
             },
             timeout=httpx.Timeout(connect=30.0, read=300.0, write=30.0, pool=30.0),
         )
@@ -321,6 +325,8 @@ async def auto_generate_schedule(
     # Parse the response
     try:
         ai_text = result["content"][0]["text"]
+        # Prepend the [ we used as assistant prefill
+        ai_text = "[" + ai_text
         # Clean potential markdown fencing
         ai_text = ai_text.strip()
         if ai_text.startswith("```"):
