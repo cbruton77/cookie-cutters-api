@@ -305,9 +305,9 @@ async def auto_generate_schedule(
             json={
                 "model": CLAUDE_MODEL,
                 "max_tokens": 32000,
-                "system": "You are a JSON API. You MUST respond with ONLY a valid JSON array. No text, no explanation, no markdown, no thinking out loud. Start your response with [ and end with ]. Nothing else.",
+                "system": "You are a JSON API. Respond with ONLY a raw JSON array. No explanation, no markdown fencing, no thinking. Your entire response must be valid JSON starting with [ and ending with ].",
                 "messages": [
-                    {"role": "user", "content": prompt},
+                    {"role": "user", "content": prompt}
                 ],
             },
             timeout=httpx.Timeout(connect=30.0, read=300.0, write=30.0, pool=30.0),
@@ -324,17 +324,38 @@ async def auto_generate_schedule(
     # Parse the response
     try:
         ai_text = result["content"][0]["text"]
-        # Prepend the [ we used as assistant prefill
-        ai_text = "[" + ai_text
-        # Clean potential markdown fencing
         ai_text = ai_text.strip()
+        
+        # Remove markdown fencing if present
         if ai_text.startswith("```"):
             ai_text = ai_text.split("\n", 1)[1] if "\n" in ai_text else ai_text[3:]
             if ai_text.endswith("```"):
                 ai_text = ai_text[:-3]
             ai_text = ai_text.strip()
-
+        
+        # Find the JSON array in the response
+        bracket_start = ai_text.find("[")
+        bracket_end = ai_text.rfind("]")
+        if bracket_start != -1 and bracket_end != -1 and bracket_end > bracket_start:
+            ai_text = ai_text[bracket_start:bracket_end + 1]
+        
+        # Handle double brackets [[...]] — flatten to single array
+        if ai_text.startswith("[["):
+            ai_text = ai_text[1:]
+            if ai_text.endswith("]]"):
+                ai_text = ai_text[:-1]
+        
+        # If response was truncated (no closing bracket), try to fix it
+        if not ai_text.rstrip().endswith("]"):
+            # Find the last complete JSON object (ends with })
+            last_brace = ai_text.rfind("}")
+            if last_brace != -1:
+                ai_text = ai_text[:last_brace + 1] + "]"
+                logger.warning(f"AI response was truncated, salvaged up to last complete shift")
+        
+        logger.info(f"Parsing JSON response: {len(ai_text)} chars")
         shifts = json.loads(ai_text)
+        logger.info(f"Parsed {len(shifts)} shifts from AI response")
     except (json.JSONDecodeError, KeyError, IndexError) as e:
         logger.error(f"Failed to parse AI response: {e}\n{ai_text[:500]}")
         raise HTTPException(status_code=500, detail="Failed to parse AI-generated schedule")
