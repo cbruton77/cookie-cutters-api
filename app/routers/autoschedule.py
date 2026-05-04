@@ -312,25 +312,25 @@ async def auto_generate_schedule(
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
 
     try:
-        response = httpx.post(
-            CLAUDE_API,
-            headers={
-                "Content-Type": "application/json",
-                "x-api-key": settings.anthropic_api_key,
-                "anthropic-version": "2023-06-01",
-            },
-            json={
-                "model": CLAUDE_MODEL,
-                "max_tokens": 32000,
-                "system": "You are a JSON API. Respond with ONLY a raw JSON array. No explanation, no markdown fencing, no thinking. Your entire response must be valid JSON starting with [ and ending with ].",
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ],
-            },
-            timeout=httpx.Timeout(connect=30.0, read=300.0, write=30.0, pool=30.0),
-        )
-        response.raise_for_status()
-        result = response.json()
+        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=30.0, read=300.0, write=30.0, pool=30.0)) as client:
+            response = await client.post(
+                CLAUDE_API,
+                headers={
+                    "Content-Type": "application/json",
+                    "x-api-key": settings.anthropic_api_key,
+                    "anthropic-version": "2023-06-01",
+                },
+                json={
+                    "model": CLAUDE_MODEL,
+                    "max_tokens": 32000,
+                    "system": "You are a JSON API. Respond with ONLY a raw JSON array. No explanation, no markdown fencing, no thinking. Your entire response must be valid JSON starting with [ and ending with ].",
+                    "messages": [
+                        {"role": "user", "content": prompt}
+                    ],
+                },
+            )
+            response.raise_for_status()
+            result = response.json()
     except httpx.HTTPStatusError as e:
         logger.error(f"Claude API HTTP error: {e.response.status_code} - {e.response.text[:500]}")
         raise HTTPException(status_code=500, detail=f"AI generation failed: HTTP {e.response.status_code}")
