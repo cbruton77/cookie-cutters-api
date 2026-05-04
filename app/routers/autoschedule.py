@@ -178,82 +178,99 @@ def _gather_context(db: SnowflakeSession, location_id: str, target_month: int, t
 
 
 def _build_prompt(context: dict, location_name: str) -> str:
-    """Build the Claude prompt with all scheduling context."""
+    """Build the Claude prompt with prescriptive day-by-day staffing targets."""
+    import math
 
     first = date.fromisoformat(context["first_of_month"])
     last = date.fromisoformat(context["last_of_month"])
-    days = []
-    d = first
-    while d <= last:
-        days.append({"date": str(d), "day_name": d.strftime("%A"), "dow": d.weekday()})
-        d += timedelta(days=1)
-
-    # Build staffing targets from actual data
-    staffing_table = ""
+    
+    # Build mandatory staffing requirements from actual data
+    day_names_map = {0: "Sunday", 1: "Monday", 2: "Tuesday", 3: "Wednesday", 4: "Thursday", 5: "Friday", 6: "Saturday"}
+    staffing_requirements = {}
     for sl in context.get("staffing_levels", []):
-        staff_count = round(float(sl.get("AVG_STAFF_PER_DAY", 3)))
-        staffing_table += f"  {sl['DAY_NAME']}: {sl['AVG_DAILY_HAIRCUTS']} avg haircuts, historically staffed {sl['AVG_STAFF_PER_DAY']} stylists → target {staff_count} stylists\n"
+        dow = int(sl.get("DOW", 0))
+        required = math.ceil(float(sl.get("AVG_STAFF_PER_DAY", 3)))
+        # Cap at 5 stylists max — that's the full team
+        if required > 5:
+            required = 5
+        staffing_requirements[dow] = required
+    
+    # Build day-by-day schedule with exact targets
+    schedule_spec = ""
+    d = first
+    total_days = 0
+    while d <= last:
+        dow_py = d.weekday()  # Python: 0=Mon, 6=Sun
+        sf_dow = (dow_py + 1) % 7  # Snowflake: 0=Sun, 1=Mon, ..., 6=Sat
+        target = staffing_requirements.get(sf_dow, 3)
+        
+        if sf_dow == 6:  # Saturday
+            times = "08:50:00 to 17:00:00"
+        elif sf_dow == 0:  # Sunday
+            times = "11:50:00 to 17:00:00"
+        else:
+            times = "09:50:00 to 18:00:00"
+        
+        closed = any(str(c.get("CLOSED_DATE", "")) == str(d) for c in context.get("closed_dates", []))
+        if closed:
+            schedule_spec += f"  {d} ({d.strftime('%A')}): CLOSED\n"
+        else:
+            schedule_spec += f"  {d} ({d.strftime('%A')}): EXACTLY {target} stylists, shift {times}\n"
+        
+        d += timedelta(days=1)
+        total_days += 1
 
     # Receptionist rules
     has_receptionist = context.get("has_receptionist", False)
     if has_receptionist:
-        recept_rules = """RECEPTIONIST RULES (Fort Worth only):
-- Schedule exactly 1 Receptionist on Monday, Thursday, Friday, Saturday, and Sunday
+        recept_rules = """RECEPTIONIST RULES:
+- ALSO schedule 1 Receptionist on Monday, Thursday, Friday, Saturday, and Sunday (IN ADDITION to stylists above)
 - Do NOT schedule a Receptionist on Tuesday or Wednesday
-- Kaitlin Hoover can work as Receptionist OR Stylist — when she works as Receptionist, she does NOT count toward the stylist target
-- Sally Olivas is Receptionist only"""
+- Sally Olivas is Receptionist ONLY
+- Kaitlin Hoover can work as Stylist OR Receptionist — if scheduled as Receptionist, she does NOT count toward the stylist number"""
     else:
-        recept_rules = "This location does NOT have a Receptionist position. Do not schedule any Receptionist shifts."
+        recept_rules = "NO Receptionist at this location. Only schedule Stylist shifts."
 
-    prompt = f"""You are an expert staff scheduler for Cookie Cutters Haircuts for Kids in {location_name}. Generate a COMPLETE schedule for every day in the month of {context['first_of_month']} through {context['last_of_month']}.
+    # Employee list with hours targets
+    emp_lines = ""
+    for emp in context["employees"]:
+        et = emp.get("EMPLOYMENT_TYPE", "FULL_TIME")
+        pos = emp.get("POSITIONS", "Stylist")
+        if et == "FULL_TIME":
+            emp_lines += f"  user_id={emp['USER_ID']}, {emp['DISPLAY_NAME']}, {pos}, FULL_TIME → 35-37 hrs/week (4-5 shifts)\n"
+        else:
+            emp_lines += f"  user_id={emp['USER_ID']}, {emp['DISPLAY_NAME']}, {pos}, PART_TIME → 16-24 hrs/week (2-3 shifts)\n"
 
-## EMPLOYEES AT THIS LOCATION
-{json.dumps(context['employees'], indent=2, default=str)}
+    prompt = f"""Generate a JSON schedule for {location_name}. Respond with ONLY a JSON array — no other text.
 
-## BUSINESS HOURS
-{json.dumps(context['business_hours'], indent=2, default=str)}
+EMPLOYEES:
+{emp_lines}
 
-## CLOSED DATES — NO SHIFTS
-{json.dumps(context['closed_dates'], indent=2, default=str)}
+MANDATORY DAILY STAFFING (from actual sales data — DO NOT CHANGE THESE NUMBERS):
+{schedule_spec}
 
-## APPROVED TIME OFF — DO NOT SCHEDULE
-{json.dumps(context['time_off'], indent=2, default=str)}
+{recept_rules}
 
-## EMPLOYEE WORK PATTERNS (last 6 months — who works which days)
-{json.dumps(context['employee_patterns'], indent=2, default=str)}
+HOURS PER SHIFT: weekday=8.17h, saturday=8.17h, sunday=5.17h
 
-## ===== STAFFING LEVELS FROM ACTUAL SALES DATA =====
-This is the most important section. These numbers come from real haircut data at THIS location.
-Use them to determine exactly how many stylists to schedule each day:
-{staffing_table}
+RULES:
+- FULL_TIME: 35-37 hours/week. Best pattern: 3 weekdays + 1 saturday + 1 sunday = 29.68h TOO LOW. Try 4 weekdays + 1 sunday = 37.85h OVER. So use 4 weekdays only = 32.68h, or 3 weekdays + 1 saturday = 32.68h + add sunday some weeks.
+- Actually the BEST full-time pattern: 4 weekdays (32.68h) + rotate weekend shifts. Some weeks add 1 sunday (5.17h) = 37.85h which is slightly over. So target 4 weekdays per week = 32.68h and add 1 sunday every other week.
+- PART_TIME: 2-3 shifts/week, 16-24 hours
+- Audrey McDonald: MAX 3 consecutive days, then 1 day off
+- Every employee: at least 1 Saturday off and 1 Sunday off per month
+- NEVER exceed 37 hours in any week for any employee
 
-## {recept_rules}
+WORK PATTERNS (who typically works which days):
+{json.dumps(context.get('employee_patterns', []), indent=2, default=str)}
 
-## SHIFT TIMES (10 min before open)
-- Monday-Friday: 09:50 to 18:00 (8h 10m = 8.17 hours)
-- Saturday: 08:50 to 17:00 (8h 10m = 8.17 hours)
-- Sunday: 11:50 to 17:00 (5h 10m = 5.17 hours)
+TIME OFF:
+{json.dumps(context.get('time_off', []), indent=2, default=str)}
 
-## ===== HARD RULES (NEVER VIOLATE) =====
-1. **MAX 37 HOURS PER WEEK per employee.** No exceptions. Count hours as: weekday=8.17h, saturday=8.17h, sunday=5.17h. A full-time employee working 5 weekdays = 40.85h which EXCEEDS the limit. Full-time employees must work 4 weekdays + 1 weekend day OR similar combinations that stay UNDER 37 hours.
-2. **FULL_TIME employees: 4-5 shifts per week, NEVER exceeding 37 hours.** Typical pattern: 4 weekdays (32.68h) + 0-1 weekend days.
-3. **PART_TIME employees: 2-3 shifts per week, target 15-25 hours.**
-4. **Audrey McDonald: MAX 3 consecutive working days**, then must have at least 1 day off.
-5. **Weekend balance: Every employee gets at least 1 Saturday AND 1 Sunday off per month.**
-6. **Never schedule anyone on closed dates or approved time-off dates.**
-7. **Match staffing to the data-driven targets above** — do NOT over-staff or under-staff.
+OUTPUT: JSON array only. Each element:
+{{"user_id":123,"shift_date":"YYYY-MM-DD","start_time":"HH:MM:SS","end_time":"HH:MM:SS","position":"Stylist","reasoning":"brief"}}
 
-## SCHEDULING RULES FROM DATABASE
-{json.dumps(context['scheduling_rules'], indent=2, default=str)}
-
-## ALL DAYS TO SCHEDULE
-{json.dumps(days, indent=2)}
-
-## OUTPUT FORMAT
-Return ONLY a JSON array. No other text, no markdown, no explanation.
-Each element: {{"user_id": 123, "shift_date": "YYYY-MM-DD", "start_time": "HH:MM:SS", "end_time": "HH:MM:SS", "position": "Stylist", "reasoning": "brief"}}
-
-CRITICAL: Generate shifts for ALL {len(days)} days. Do not stop partway through the month."""
+Generate ALL {total_days} days. Do not stop early."""
 
     return prompt
 
