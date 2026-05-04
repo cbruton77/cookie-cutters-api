@@ -295,25 +295,28 @@ async def auto_generate_schedule(
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
 
     try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                CLAUDE_API,
-                headers={
-                    "Content-Type": "application/json",
-                    "x-api-key": settings.anthropic_api_key,
-                    "anthropic-version": "2023-06-01",
-                },
-                json={
-                    "model": CLAUDE_MODEL,
-                    "max_tokens": 16000,
-                    "messages": [{"role": "user", "content": prompt}],
-                },
-            )
-            response.raise_for_status()
-            result = response.json()
+        response = httpx.post(
+            CLAUDE_API,
+            headers={
+                "Content-Type": "application/json",
+                "x-api-key": settings.anthropic_api_key,
+                "anthropic-version": "2023-06-01",
+            },
+            json={
+                "model": CLAUDE_MODEL,
+                "max_tokens": 32000,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+            timeout=httpx.Timeout(connect=30.0, read=300.0, write=30.0, pool=30.0),
+        )
+        response.raise_for_status()
+        result = response.json()
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Claude API HTTP error: {e.response.status_code} - {e.response.text[:500]}")
+        raise HTTPException(status_code=500, detail=f"AI generation failed: HTTP {e.response.status_code}")
     except Exception as e:
-        logger.error(f"Claude API error: {e}")
-        raise HTTPException(status_code=500, detail=f"AI generation failed: {str(e)}")
+        logger.error(f"Claude API error: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail=f"AI generation failed: {type(e).__name__}: {str(e)}")
 
     # Parse the response
     try:
