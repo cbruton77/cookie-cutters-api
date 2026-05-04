@@ -308,7 +308,6 @@ async def auto_generate_schedule(
                 "system": "You are a JSON API. You MUST respond with ONLY a valid JSON array. No text, no explanation, no markdown, no thinking out loud. Start your response with [ and end with ]. Nothing else.",
                 "messages": [
                     {"role": "user", "content": prompt},
-                    {"role": "assistant", "content": "["}
                 ],
             },
             timeout=httpx.Timeout(connect=30.0, read=300.0, write=30.0, pool=30.0),
