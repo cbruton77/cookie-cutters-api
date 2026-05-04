@@ -134,6 +134,30 @@ def _gather_context(db: SnowflakeSession, location_id: str, target_month: int, t
         ORDER BY EMPLOYEE_FULL_NAME, DOW
     """, [loc_name_pattern])
 
+    # 9. Calculate recommended staffing levels from actual historical data
+    staffing_levels = db.execute_all("""
+        SELECT DAYNAME(TO_DATE(WORK_DATE, 'YYYY-MM-DD')) AS DAY_NAME,
+               DAYOFWEEK(TO_DATE(WORK_DATE, 'YYYY-MM-DD')) AS DOW,
+               ROUND(SUM(HAIRCUT_COUNT)/COUNT(DISTINCT WORK_DATE),1) AS AVG_DAILY_HAIRCUTS,
+               ROUND(SUM(HAIRCUT_COUNT)/NULLIF(SUM(WORKEDHOURS),0),1) AS HAIRCUTS_PER_HOUR,
+               ROUND(COUNT(*)/COUNT(DISTINCT WORK_DATE),1) AS AVG_STAFF_PER_DAY
+        FROM EMPLOYEE_HOURS_HAIRCUTS_HISTORY
+        WHERE WORK_DATE >= DATEADD(MONTH, -6, CURRENT_DATE())
+          AND LOCATION LIKE %s
+        GROUP BY DAY_NAME, DOW
+        ORDER BY DOW
+    """, [loc_name_pattern])
+
+    # 10. Check which positions exist at this location (for receptionist logic)
+    location_positions = db.execute_all("""
+        SELECT DISTINCT p.POSITION_NAME
+        FROM USER_POSITIONS up
+        JOIN POSITIONS p ON up.POSITION_ID = p.POSITION_ID
+        JOIN USERS u ON up.USER_ID = u.USER_ID
+        WHERE u.LOCATION_ID = %s AND u.IS_ACTIVE = TRUE
+    """, [location_id])
+    has_receptionist = any(p["POSITION_NAME"] == "Receptionist" for p in location_positions)
+
     return {
         "employees": [dict(e) for e in employees],
         "business_hours": [dict(h) for h in hours],
@@ -143,6 +167,9 @@ def _gather_context(db: SnowflakeSession, location_id: str, target_month: int, t
         "historical_by_day": [dict(h) for h in historical_by_day],
         "recent_trends": [dict(r) for r in recent_trends],
         "employee_patterns": [dict(e) for e in employee_patterns],
+        "staffing_levels": [dict(s) for s in staffing_levels],
+        "has_receptionist": has_receptionist,
+        "location_name": loc_info["LOCATION_NAME"],
         "target_month": target_month,
         "target_year": target_year,
         "first_of_month": str(first_of_month),
@@ -161,64 +188,72 @@ def _build_prompt(context: dict, location_name: str) -> str:
         days.append({"date": str(d), "day_name": d.strftime("%A"), "dow": d.weekday()})
         d += timedelta(days=1)
 
-    prompt = f"""You are an expert staff scheduler for Cookie Cutters Haircuts for Kids in {location_name}. Generate a COMPLETE optimized schedule for every day in the month starting {context['first_of_month']}.
+    # Build staffing targets from actual data
+    staffing_table = ""
+    for sl in context.get("staffing_levels", []):
+        staff_count = round(float(sl.get("AVG_STAFF_PER_DAY", 3)))
+        staffing_table += f"  {sl['DAY_NAME']}: {sl['AVG_DAILY_HAIRCUTS']} avg haircuts, historically staffed {sl['AVG_STAFF_PER_DAY']} stylists → target {staff_count} stylists\n"
 
-## EMPLOYEES (with employment type)
+    # Receptionist rules
+    has_receptionist = context.get("has_receptionist", False)
+    if has_receptionist:
+        recept_rules = """RECEPTIONIST RULES (Fort Worth only):
+- Schedule exactly 1 Receptionist on Monday, Thursday, Friday, Saturday, and Sunday
+- Do NOT schedule a Receptionist on Tuesday or Wednesday
+- Kaitlin Hoover can work as Receptionist OR Stylist — when she works as Receptionist, she does NOT count toward the stylist target
+- Sally Olivas is Receptionist only"""
+    else:
+        recept_rules = "This location does NOT have a Receptionist position. Do not schedule any Receptionist shifts."
+
+    prompt = f"""You are an expert staff scheduler for Cookie Cutters Haircuts for Kids in {location_name}. Generate a COMPLETE schedule for every day in the month of {context['first_of_month']} through {context['last_of_month']}.
+
+## EMPLOYEES AT THIS LOCATION
 {json.dumps(context['employees'], indent=2, default=str)}
 
 ## BUSINESS HOURS
 {json.dumps(context['business_hours'], indent=2, default=str)}
 
-## SCHEDULING RULES
-{json.dumps(context['scheduling_rules'], indent=2, default=str)}
-
-## CLOSED DATES — DO NOT SCHEDULE ANYONE
+## CLOSED DATES — NO SHIFTS
 {json.dumps(context['closed_dates'], indent=2, default=str)}
 
-## APPROVED TIME OFF — DO NOT SCHEDULE THESE PEOPLE ON THESE DATES
+## APPROVED TIME OFF — DO NOT SCHEDULE
 {json.dumps(context['time_off'], indent=2, default=str)}
 
-## DEMAND DATA — Haircuts per day and staffing metrics (CRITICAL FOR STAFFING DECISIONS)
-Historical same-month data:
-{json.dumps(context['historical_by_day'], indent=2, default=str)}
-
-Recent 3-month trends:
-{json.dumps(context['recent_trends'], indent=2, default=str)}
-
-## EMPLOYEE WORK PATTERNS — Who typically works which days (last 6 months)
+## EMPLOYEE WORK PATTERNS (last 6 months — who works which days)
 {json.dumps(context['employee_patterns'], indent=2, default=str)}
 
-## STAFFING FORMULA (USE THIS)
-A stylist handles ~1.5-2.0 haircuts per hour. Use this to calculate required stylists:
-  Required stylists = ceil(avg_daily_haircuts / operating_hours / 1.7)
+## ===== STAFFING LEVELS FROM ACTUAL SALES DATA =====
+This is the most important section. These numbers come from real haircut data at THIS location.
+Use them to determine exactly how many stylists to schedule each day:
+{staffing_table}
 
-Based on the demand data above, target these MINIMUM stylist counts:
-- Saturday (highest demand): 5-6 stylists
-- Friday & Sunday (high demand): 5 stylists  
-- Monday & Thursday (medium): 4 stylists
-- Tuesday & Wednesday (lowest): 3-4 stylists
-Plus ALWAYS 1 Receptionist (Kaitlin as Receptionist does NOT count as stylist)
+## {recept_rules}
 
-## SHIFT TIMES (fixed based on business hours, 10 min before open)
-- Monday-Friday: 09:50 to 18:00 (8h10m)
-- Saturday: 08:50 to 17:00 (8h10m)
-- Sunday: 11:50 to 17:00 (5h10m)
+## SHIFT TIMES (10 min before open)
+- Monday-Friday: 09:50 to 18:00 (8h 10m = 8.17 hours)
+- Saturday: 08:50 to 17:00 (8h 10m = 8.17 hours)
+- Sunday: 11:50 to 17:00 (5h 10m = 5.17 hours)
 
-## EMPLOYEE RULES
-- FULL_TIME: Schedule 5 days/week, target 35-37 hours, give 2 days off
-- PART_TIME: Schedule 2-3 days/week, target 15-25 hours
-- Audrey McDonald: MAX 3 consecutive working days, then must have day off
-- Give every employee at least 1 Saturday AND 1 Sunday off per month
-- Match employees to days they historically work when possible
+## ===== HARD RULES (NEVER VIOLATE) =====
+1. **MAX 37 HOURS PER WEEK per employee.** No exceptions. Count hours as: weekday=8.17h, saturday=8.17h, sunday=5.17h. A full-time employee working 5 weekdays = 40.85h which EXCEEDS the limit. Full-time employees must work 4 weekdays + 1 weekend day OR similar combinations that stay UNDER 37 hours.
+2. **FULL_TIME employees: 4-5 shifts per week, NEVER exceeding 37 hours.** Typical pattern: 4 weekdays (32.68h) + 0-1 weekend days.
+3. **PART_TIME employees: 2-3 shifts per week, target 15-25 hours.**
+4. **Audrey McDonald: MAX 3 consecutive working days**, then must have at least 1 day off.
+5. **Weekend balance: Every employee gets at least 1 Saturday AND 1 Sunday off per month.**
+6. **Never schedule anyone on closed dates or approved time-off dates.**
+7. **Match staffing to the data-driven targets above** — do NOT over-staff or under-staff.
+
+## SCHEDULING RULES FROM DATABASE
+{json.dumps(context['scheduling_rules'], indent=2, default=str)}
 
 ## ALL DAYS TO SCHEDULE
 {json.dumps(days, indent=2)}
 
-## OUTPUT — CRITICAL INSTRUCTIONS
-1. Return ONLY a JSON array, no other text whatsoever
-2. Generate shifts for EVERY SINGLE DAY of the month (except closed dates)
-3. Every element must have: user_id (int), shift_date (YYYY-MM-DD), start_time (HH:MM:SS), end_time (HH:MM:SS), position (Stylist/Receptionist), reasoning (1 sentence)
-4. Do NOT stop early. The complete month must have shifts for all {len(days)} days."""
+## OUTPUT FORMAT
+Return ONLY a JSON array. No other text, no markdown, no explanation.
+Each element: {{"user_id": 123, "shift_date": "YYYY-MM-DD", "start_time": "HH:MM:SS", "end_time": "HH:MM:SS", "position": "Stylist", "reasoning": "brief"}}
+
+CRITICAL: Generate shifts for ALL {len(days)} days. Do not stop partway through the month."""
 
     return prompt
 
