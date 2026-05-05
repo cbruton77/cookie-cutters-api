@@ -73,8 +73,12 @@ app.include_router(autoschedule.router)
 # app.include_router(analytics.router)
 
 
+# Mount static files directory
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+
 @app.get("/")
 async def root():
     """Serve the frontend app."""
-    static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
     return FileResponse(os.path.join(static_dir, "index.html"))
