@@ -29,7 +29,7 @@ async def get_weekly_shifts(
                TO_CHAR(s.START_TIME, 'HH12:MI AM') AS START_TIME,
                TO_CHAR(s.END_TIME, 'HH12:MI AM') AS END_TIME,
                TIMEDIFF(MINUTE, s.START_TIME, s.END_TIME) / 60.0 AS HOURS_SCHEDULED,
-               p.POSITION_NAME, s.NOTES
+               p.POSITION_NAME, s.NOTES, NVL(s.STATUS, 'DRAFT') AS STATUS
         FROM SHIFTS s
         JOIN USERS u ON s.USER_ID = u.USER_ID
         JOIN LOCATIONS l ON s.LOCATION_ID = l.LOCATION_ID
@@ -38,6 +38,10 @@ async def get_weekly_shifts(
           AND u.IS_ACTIVE = TRUE
     """
     params = [week_start, week_end]
+
+    # Non-managers only see PUBLISHED shifts
+    if not user.is_manager:
+        query += " AND NVL(s.STATUS, 'DRAFT') = 'PUBLISHED'"
 
     if location_id:
         query += " AND s.LOCATION_ID = %s"
@@ -60,6 +64,7 @@ async def get_weekly_shifts(
             hours_scheduled=round(float(r["HOURS_SCHEDULED"]), 2),
             position_name=r["POSITION_NAME"],
             notes=r.get("NOTES"),
+            status=r.get("STATUS", "DRAFT"),
         )
         for r in rows
     ]
@@ -189,3 +194,47 @@ async def delete_shift(
     """Delete a shift. Manager only."""
     db.execute("DELETE FROM SHIFTS WHERE SHIFT_ID = %s", [shift_id])
     return {"message": "Shift deleted"}
+
+
+@router.post("/publish")
+async def publish_shifts(
+    data: dict,
+    user: AuthenticatedUser = Depends(require_manager),
+    db: SnowflakeSession = Depends(get_db),
+):
+    """Publish all DRAFT shifts for a given week and location."""
+    week_start = data["week_start"]
+    week_end = date.fromisoformat(week_start) + timedelta(days=6)
+    location_id = data.get("location_id")
+
+    query = "UPDATE SHIFTS SET STATUS = 'PUBLISHED', UPDATED_AT = CURRENT_TIMESTAMP() WHERE STATUS = 'DRAFT' AND SHIFT_DATE BETWEEN %s AND %s"
+    params = [week_start, str(week_end)]
+
+    if location_id:
+        query += " AND LOCATION_ID = %s"
+        params.append(location_id)
+
+    db.execute(query, params)
+    return {"message": "Shifts published"}
+
+
+@router.post("/unpublish")
+async def unpublish_shifts(
+    data: dict,
+    user: AuthenticatedUser = Depends(require_manager),
+    db: SnowflakeSession = Depends(get_db),
+):
+    """Unpublish shifts back to DRAFT for a given week."""
+    week_start = data["week_start"]
+    week_end = date.fromisoformat(week_start) + timedelta(days=6)
+    location_id = data.get("location_id")
+
+    query = "UPDATE SHIFTS SET STATUS = 'DRAFT', UPDATED_AT = CURRENT_TIMESTAMP() WHERE STATUS = 'PUBLISHED' AND SHIFT_DATE BETWEEN %s AND %s"
+    params = [week_start, str(week_end)]
+
+    if location_id:
+        query += " AND LOCATION_ID = %s"
+        params.append(location_id)
+
+    db.execute(query, params)
+    return {"message": "Shifts unpublished"}

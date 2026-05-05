@@ -124,7 +124,7 @@ let state = {
   announcementForm:{title:'',body:''},
   ruleForm:{rule_type:'MAX_CONSECUTIVE_DAYS',rule_name:'',rule_description:'',param_1:'',param_2:'',user_id:''},
   editRule:null,
-  generating:false, draftBatchId:null, draftShifts:[], autoLoc:null, autoMonth:null, autoYear:null,
+  generating:false, draftBatchId:null, draftShifts:[], autoLoc:null, autoMonth:null, autoYear:null, hasDrafts:false,
 };
 
 function setState(updates){ Object.assign(state, updates); render(); }
@@ -157,9 +157,48 @@ async function loadShifts(){
     const ws = wsf(new Date(), state.wkOff);
     const data = await apiFetch(`/api/scheduling/shifts?week_start=${dk(ws)}`);
     const map = {};
-    data.forEach(s=>{map[`${s.user_id}-${s.shift_date}`]={shift_id:s.shift_id,start:apiToApp(s.start_time),end:apiToApp(s.end_time),role:s.position_name,loc:s.location_name==='Fort Worth'?'FW':'ARL',hours:s.hours_scheduled}});
-    setState({shifts:map});
+    let hasDrafts = false;
+    data.forEach(s=>{
+      map[`${s.user_id}-${s.shift_date}`]={shift_id:s.shift_id,start:apiToApp(s.start_time),end:apiToApp(s.end_time),role:s.position_name,loc:s.location_name==='Fort Worth'?'FW':'ARL',hours:s.hours_scheduled,status:s.status||'DRAFT'};
+      if((s.status||'DRAFT')==='DRAFT') hasDrafts=true;
+    });
+    setState({shifts:map,hasDrafts:hasDrafts});
   }catch(e){console.error(e)}
+}
+
+// Drag and drop
+let dragSrc = null;
+function onDragStart(userId, dateKey, shift){dragSrc={userId,dateKey,shift}}
+function onDragOver(e,userId){e.preventDefault();if(dragSrc&&dragSrc.userId===userId)e.dataTransfer.dropEffect='move'}
+async function onDrop(e,userId,targetDate){
+  e.preventDefault();
+  if(!dragSrc||dragSrc.userId!==userId||dragSrc.dateKey===targetDate)return;
+  if(dragSrc.shift&&dragSrc.shift.shift_id){
+    try{
+      await apiFetch(`/api/scheduling/shifts/${dragSrc.shift.shift_id}/move`,{method:'PUT',body:JSON.stringify({new_date:targetDate})});
+      await loadShifts();toast('Shift moved!');
+    }catch(e){toast(e.message)}
+  }
+  dragSrc=null;
+}
+function onDragEnd(){dragSrc=null}
+
+// Publish
+async function publishWeek(){
+  const ws=wsf(new Date(),state.wkOff);
+  const locId=state.locations.find(l=>l.name===state.mLoc)?.id||'';
+  try{
+    await apiFetch('/api/scheduling/shifts/publish',{method:'POST',body:JSON.stringify({week_start:dk(ws),location_id:locId||undefined})});
+    await loadShifts();toast('Schedule published! Stylists can now see it.');
+  }catch(e){toast(e.message)}
+}
+async function unpublishWeek(){
+  const ws=wsf(new Date(),state.wkOff);
+  const locId=state.locations.find(l=>l.name===state.mLoc)?.id||'';
+  try{
+    await apiFetch('/api/scheduling/shifts/unpublish',{method:'POST',body:JSON.stringify({week_start:dk(ws),location_id:locId||undefined})});
+    await loadShifts();toast('Schedule unpublished — back to draft.');
+  }catch(e){toast(e.message)}
 }
 
 // ===== API ACTIONS =====
@@ -198,6 +237,18 @@ async function saveUser(){
 }
 
 async function removeUser(uid){try{await apiFetch(`/api/scheduling/users/${uid}`,{method:'DELETE'});setState({confirmDel:null});await loadAll();toast('Removed')}catch(e){toast(e.message)}}
+
+function startEditUser(userId){
+  const usr = state.users.find(u=>u.user_id===userId);
+  if(!usr) return;
+  state.userForm = {
+    firstName: usr.first_name,
+    lastName: usr.last_name,
+    positions: [...usr.positions],
+    location_id: usr.location_id
+  };
+  setState({editUser: usr});
+}
 
 async function saveTpl(){
   const f=state.tplForm;if(!f.name){toast('Enter name');return}
@@ -384,9 +435,10 @@ function render(){
         if(cl){html+=`<div class="gshc ccl"><span class="off" style="color:#E57373">✕</span></div>`;return}
         if(shift){
           const rc=RC[shift.role]||RC.Stylist;
-          html+=`<div class="gshc ${td?'td':''}" onclick="${canEdit?`openModal('edit',${sty.user_id},'${d}','${fd(day).replace("'","\\'")}','${sty.display_name.replace("'","\\'")}',${JSON.stringify(sty.positions).replace(/"/g,"&quot;")},'${sty.location_id}')`:''}""><div class="sp" style="background:${rc.bg};color:${rc.color};border:1px solid ${rc.border}"><span>${shift.start}</span><span>${shift.end}</span><span style="font-size:7px;font-weight:700;margin-top:1px">${shift.role==='Receptionist'?'Rec.':'Stylist'}</span></div></div>`;
+          const isDraft = shift.status==='DRAFT';
+          html+=`<div class="gshc ${td?'td':''}" ondragover="${canEdit?`onDragOver(event,${sty.user_id})`:''}" ondrop="${canEdit?`onDrop(event,${sty.user_id},'${d}')`:''}" onclick="${canEdit?`openModal('edit',${sty.user_id},'${d}','${fd(day).replace("'","\\'")}','${sty.display_name.replace("'","\\'")}',${JSON.stringify(sty.positions).replace(/"/g,"&quot;")},'${sty.location_id}')`:''}""><div class="sp" draggable="${canEdit}" ondragstart="${canEdit?`onDragStart(${sty.user_id},'${d}',state.shifts['${sty.user_id}-${d}'])`:''}" ondragend="onDragEnd()" style="background:${rc.bg};color:${rc.color};border:1px ${isDraft?'dashed':'solid'} ${rc.border};${isDraft?'opacity:0.8':''}"><span>${shift.start}</span><span>${shift.end}</span><span style="font-size:7px;font-weight:700;margin-top:1px">${shift.role==='Receptionist'?'Rec.':'Stylist'}${isDraft?' ✎':''}</span></div></div>`;
         } else if(canEdit){
-          html+=`<div class="gshc ${td?'td':''}" onclick="openModal('add',${sty.user_id},'${d}','${fd(day).replace("'","\\'")}','${sty.display_name.replace("'","\\'")}',${JSON.stringify(sty.positions).replace(/"/g,"&quot;")},'${sty.location_id}')"><button class="ea">+</button></div>`;
+          html+=`<div class="gshc ${td?'td':''}" ondragover="onDragOver(event,${sty.user_id})" ondrop="onDrop(event,${sty.user_id},'${d}')" onclick="openModal('add',${sty.user_id},'${d}','${fd(day).replace("'","\\'")}','${sty.display_name.replace("'","\\'")}',${JSON.stringify(sty.positions).replace(/"/g,"&quot;")},'${sty.location_id}')"><button class="ea">+</button></div>`;
         } else {
           html+=`<div class="gshc ${td?'td':''}"><span class="off">OFF</span></div>`;
         }
@@ -402,6 +454,15 @@ function render(){
     html+=`<div class="cd" style="margin-top:14px;background:#FFFDF7"><div style="font-family:'Fredoka';font-weight:600;font-size:14px;color:#4E342E;margin-bottom:10px">Weekly Hours</div>`;
     vUsers.forEach(sty=>{html+=`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F5EDE3"><span style="font-size:12px;color:#4E342E">${sty.display_name}</span><span style="font-size:12px;font-weight:700;color:#6D4C41;font-family:'Fredoka'">${fmtHrs(wh[sty.user_id]||0)}</span></div>`});
     html+=`<div style="display:flex;justify-content:flex-end;padding-top:10px;border-top:2px solid #EDE0D4;margin-top:6px"><span style="font-size:14px;font-weight:700;color:#BF360C;font-family:'Fredoka'">Total: ${fmtHrs(twh)}</span></div></div>`;
+
+    // Publish / Unpublish button for editors
+    if(canEdit && Object.keys(s.shifts).length > 0){
+      if(s.hasDrafts){
+        html+=`<div class="cd" style="background:linear-gradient(135deg,#FFF3E0,#FFE8D5);border:2px solid #FFB74D;text-align:center;padding:16px"><div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px"><span style="font-size:11px;background:#FFE0B2;color:#E65100;padding:3px 10px;border-radius:10px;font-weight:700">DRAFT</span><span style="font-size:13px;color:#8D6E63">This week has unpublished changes</span></div><div style="display:flex;gap:8px;justify-content:center"><button class="btn bp" style="padding:12px 24px" onclick="publishWeek()">📢 Publish to Team</button></div><div style="font-size:11px;color:#BCAAA4;margin-top:8px">Stylists can't see draft shifts until you publish</div></div>`;
+      } else {
+        html+=`<div style="text-align:center;margin-top:8px"><span style="font-size:12px;color:#2E7D32;font-weight:600">✅ This week is published</span><button class="btn bs bsm" style="margin-left:12px" onclick="unpublishWeek()">Unpublish</button></div>`;
+      }
+    }
   }
 
   // TIME OFF
@@ -441,7 +502,7 @@ function render(){
       if(s.confirmDel===usr.user_id){
         html+=`<div class="cd" style="padding:14px"><div style="color:#C62828;font-weight:600;margin-bottom:10px">Remove ${usr.display_name}?</div><div style="display:flex;gap:8px"><button class="btn bsm bdn" onclick="removeUser(${usr.user_id})">Yes</button><button class="btn bsm bs" onclick="setState({confirmDel:null})">Cancel</button></div></div>`;
       } else {
-        html+=`<div class="cd" style="padding:14px;display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;border-radius:12px;background:${getColor(usr.user_id)}15;border:1.5px solid ${getColor(usr.user_id)}35;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:${getColor(usr.user_id)};flex-shrink:0">${usr.avatar_initials}</div><div style="flex:1"><div style="font-size:14px;font-weight:700;color:#4E342E">${usr.display_name}</div><div style="display:flex;gap:4px;margin-top:4px">${usr.positions.map(p=>`<span class="pb ${p==='Stylist'?'pb-s':'pb-r'}">${p}</span>`).join('')}</div><div style="font-size:11px;color:#BCAAA4;margin-top:4px">${usr.location_name}</div></div><div style="display:flex;gap:6px"><button onclick="setState({editUser:state.users.find(u=>u.user_id===${usr.user_id}),userForm:{firstName:'${usr.first_name}',lastName:'${usr.last_name}',positions:${JSON.stringify(usr.positions)},location_id:'${usr.location_id}'}})" style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">✏️</button><button onclick="setState({confirmDel:${usr.user_id}})" style="background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">🗑️</button></div></div>`;
+        html+=`<div class="cd" style="padding:14px;display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;border-radius:12px;background:${getColor(usr.user_id)}15;border:1.5px solid ${getColor(usr.user_id)}35;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:${getColor(usr.user_id)};flex-shrink:0">${usr.avatar_initials}</div><div style="flex:1"><div style="font-size:14px;font-weight:700;color:#4E342E">${usr.display_name}</div><div style="display:flex;gap:4px;margin-top:4px">${usr.positions.map(p=>`<span class="pb ${p==='Stylist'?'pb-s':'pb-r'}">${p}</span>`).join('')}</div><div style="font-size:11px;color:#BCAAA4;margin-top:4px">${usr.location_name}</div></div><div style="display:flex;gap:6px"><button onclick="startEditUser(${usr.user_id})" style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">✏️</button><button onclick="setState({confirmDel:${usr.user_id}})" style="background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">🗑️</button></div></div>`;
       }
     });
   }
