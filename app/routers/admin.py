@@ -250,10 +250,15 @@ async def add_scheduling_rule(
     user: AuthenticatedUser = Depends(require_manager),
     db: SnowflakeSession = Depends(get_db),
 ):
+    # Convert empty strings to None for nullable columns
+    loc_id = data.get("location_id") or None
+    usr_id = data.get("user_id") or None
+    if usr_id:
+        usr_id = int(usr_id)
     db.execute("""
         INSERT INTO SCHEDULING_RULES (LOCATION_ID, USER_ID, RULE_TYPE, RULE_NAME, RULE_DESCRIPTION, PARAM_1, PARAM_2, CREATED_BY)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-    """, [data.get("location_id"), data.get("user_id"), data["rule_type"], data["rule_name"],
+    """, [loc_id, usr_id, data["rule_type"], data["rule_name"],
           data.get("rule_description", ""), data.get("param_1", ""), data.get("param_2", ""), user.user_id])
     return {"message": "Rule added"}
 
