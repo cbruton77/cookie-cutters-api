@@ -2,8 +2,8 @@ const {useState,useEffect,useCallback} = React;
 
 // ═══ CONFIG ═══
 const API = window.location.origin;
-const DEV_USER = new URLSearchParams(window.location.search).get("user") || "201";
-const EDITORS = [201,301,102,2];
+const DEV_USER = new URLSearchParams(window.location.search).get("user") || "1530002";
+const EDITORS = [1530002,1530003,1530001,1870001];
 
 // ═══ API ═══
 const apiFetch = async (path, opts={}) => {
