@@ -231,6 +231,20 @@ async function saveRule(){
 }
 async function removeRule(id){try{await apiFetch(`/api/scheduling/admin/scheduling-rules/${id}`,{method:'DELETE'});await loadAll();toast('Removed')}catch(e){toast(e.message)}}
 
+function editRule(ruleId){
+  const rule = state.schedulingRules.find(r=>r.RULE_ID===ruleId);
+  if(!rule) return;
+  state.ruleForm = {
+    rule_type: rule.RULE_TYPE || 'CUSTOM',
+    rule_name: rule.RULE_NAME || '',
+    rule_description: rule.RULE_DESCRIPTION || '',
+    param_1: rule.PARAM_1 || '',
+    param_2: rule.PARAM_2 || '',
+    user_id: rule.USER_ID ? String(rule.USER_ID) : ''
+  };
+  setState({showRuleForm:true, editRule:rule});
+}
+
 // Business Hours
 async function updateHours(hoursId,data){
   try{await apiFetch(`/api/scheduling/admin/business-hours/${hoursId}`,{method:'PUT',body:JSON.stringify(data)});await loadAll();toast('Hours updated!')}catch(e){toast(e.message)}
@@ -477,11 +491,11 @@ function render(){
         const rf=s.ruleForm;
         const ruleTypes=[{v:'MAX_CONSECUTIVE_DAYS',l:'Max Consecutive Days',p1:'Max days',p2:''},{v:'WEEKLY_HOURS_RANGE',l:'Weekly Hours Range',p1:'Min hours',p2:'Max hours'},{v:'WEEKEND_OFF_PER_MONTH',l:'Weekend Days Off / Month',p1:'Saturdays off',p2:'Sundays off'},{v:'SHIFT_START_OFFSET',l:'Shift Start Offset',p1:'Minutes (negative=before)',p2:''},{v:'CUSTOM',l:'Custom Rule',p1:'Value',p2:'Value 2'}];
         html+=`<div class="cd" style="border-color:#FF7043;border-width:2px;margin-bottom:14px"><div style="display:flex;flex-direction:column;gap:10px">`;
-        html+=`<select class="ff" onchange="setState({ruleForm:{...state.ruleForm,rule_type:this.value}})">${ruleTypes.map(t=>`<option value="${t.v}" ${rf.rule_type===t.v?'selected':''}>${t.l}</option>`).join('')}</select>`;
+        html+=`<select class="ff" onchange="state.ruleForm.rule_type=this.value">${ruleTypes.map(t=>`<option value="${t.v}" ${rf.rule_type===t.v?'selected':''}>${t.l}</option>`).join('')}</select>`;
         html+=`<input class="ff" placeholder="Rule name" value="${rf.rule_name}" oninput="state.ruleForm.rule_name=this.value">`;
         html+=`<input class="ff" placeholder="Description" value="${rf.rule_description}" oninput="state.ruleForm.rule_description=this.value">`;
         html+=`<div style="display:flex;gap:8px"><input class="ff" placeholder="Value 1" value="${rf.param_1}" oninput="state.ruleForm.param_1=this.value"><input class="ff" placeholder="Value 2 (optional)" value="${rf.param_2}" oninput="state.ruleForm.param_2=this.value"></div>`;
-        html+=`<select class="ff" onchange="setState({ruleForm:{...state.ruleForm,user_id:this.value||null}})"><option value="">Applies to: All employees</option>${s.users.filter(x=>x.positions.length>0).map(x=>`<option value="${x.user_id}" ${String(rf.user_id)===String(x.user_id)?'selected':''}>${x.display_name}</option>`).join('')}</select>`;
+        html+=`<select class="ff" onchange="state.ruleForm.user_id=this.value||null"><option value="">Applies to: All employees</option>${s.users.filter(x=>x.positions.length>0).map(x=>`<option value="${x.user_id}" ${String(rf.user_id)===String(x.user_id)?'selected':''}>${x.display_name}</option>`).join('')}</select>`;
         html+=`<div style="display:flex;gap:8px"><button class="btn bp bsm" style="flex:1;justify-content:center" onclick="saveRule()">${s.editRule?'Save':'Add Rule'}</button><button class="btn bs bsm" onclick="setState({showRuleForm:false,editRule:null})">Cancel</button></div>`;
         html+=`</div></div>`;
       }
@@ -489,7 +503,8 @@ function render(){
       const rTypeLabels={MAX_CONSECUTIVE_DAYS:'⏱️ Max Days',WEEKLY_HOURS_RANGE:'📊 Hours',WEEKEND_OFF_PER_MONTH:'🗓️ Weekend',SHIFT_START_OFFSET:'🕐 Offset',CUSTOM:'📝 Custom'};
       const filteredRules = vLoc==='All' ? s.schedulingRules : s.schedulingRules.filter(r=>!r.LOCATION_ID||r.LOCATION_NAME===vLoc);
       filteredRules.forEach(r=>{
-        html+=`<div class="cd" style="padding:14px;display:flex;justify-content:space-between"><div><div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#1565C0;background:#E3F2FD;padding:2px 8px;border-radius:8px;font-weight:600">${rTypeLabels[r.RULE_TYPE]||r.RULE_TYPE}</span>${r.USER_NAME?`<span style="font-size:11px;color:#7B1FA2;background:#F3E5F5;padding:2px 8px;border-radius:8px;font-weight:600">${r.USER_NAME}</span>`:''}</div><div style="font-size:14px;font-weight:700;color:#4E342E;margin-top:6px">${r.RULE_NAME}</div>${r.RULE_DESCRIPTION?`<div style="font-size:12px;color:#8D6E63;margin-top:2px">${r.RULE_DESCRIPTION}</div>`:''}<div style="font-size:11px;color:#BCAAA4;margin-top:4px">${r.PARAM_1?'Value: '+r.PARAM_1:''}${r.PARAM_2?' – '+r.PARAM_2:''}</div></div><button onclick="removeRule(${r.RULE_ID})" style="background:none;border:none;font-size:16px;color:#E57373;cursor:pointer;flex-shrink:0">✕</button></div>`;
+        html+=`<div class="cd" style="padding:14px;display:flex;justify-content:space-between"><div style="flex:1"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#1565C0;background:#E3F2FD;padding:2px 8px;border-radius:8px;font-weight:600">${rTypeLabels[r.RULE_TYPE]||r.RULE_TYPE}</span>${r.USER_NAME?`<span style="font-size:11px;color:#7B1FA2;background:#F3E5F5;padding:2px 8px;border-radius:8px;font-weight:600">${r.USER_NAME}</span>`:''}</div><div style="font-size:14px;font-weight:700;color:#4E342E;margin-top:6px">${r.RULE_NAME}</div>${r.RULE_DESCRIPTION?`<div style="font-size:12px;color:#8D6E63;margin-top:2px">${r.RULE_DESCRIPTION}</div>`:''}<div style="font-size:11px;color:#BCAAA4;margin-top:4px">${r.PARAM_1?'Value: '+r.PARAM_1:''}${r.PARAM_2?' – '+r.PARAM_2:''}</div></div><div style="display:flex;gap:6px;flex-shrink:0"><button onclick="editRule(${r.RULE_ID})" style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">✏️</button><button onclick="removeRule(${r.RULE_ID})" style="background:#FFEBEE;border:1px solid #FFCDD2;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px">✕</button></div></div>`;
+      });
       });
       if(filteredRules.length===0) html+=`<div style="text-align:center;padding:20px;color:#BCAAA4;font-size:13px">No rules yet. Add rules to guide the auto-scheduler.</div>`;
 
