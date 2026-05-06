@@ -24,10 +24,11 @@ class AuthenticatedUser:
     """Represents the currently authenticated user."""
 
     def __init__(self, user_id: int, email: str, is_manager: bool,
-                 location_id: str | None, location_name: str, display_name: str):
+                 is_admin: bool, location_id: str | None, location_name: str, display_name: str):
         self.user_id = user_id
         self.email = email
         self.is_manager = is_manager
+        self.is_admin = is_admin
         self.location_id = location_id
         self.location_name = location_name
         self.display_name = display_name
@@ -60,7 +61,7 @@ async def get_current_user(
         dev_user_id = request.headers.get("x-dev-user-id") or request.query_params.get("dev_user_id")
         if dev_user_id:
             user = db.execute_one("""
-                SELECT u.USER_ID, u.EMAIL, u.IS_MANAGER, CAST(u.LOCATION_ID AS VARCHAR) AS LOCATION_ID,
+                SELECT u.USER_ID, u.EMAIL, u.IS_MANAGER, u.IS_ADMIN, CAST(u.LOCATION_ID AS VARCHAR) AS LOCATION_ID,
                        u.DISPLAY_NAME, l.LOCATION_NAME
                 FROM USERS u
                 JOIN LOCATIONS l ON u.LOCATION_ID = l.LOCATION_ID
@@ -71,6 +72,7 @@ async def get_current_user(
                     user_id=user["USER_ID"],
                     email=user.get("EMAIL", ""),
                     is_manager=user["IS_MANAGER"],
+                    is_admin=user.get("IS_ADMIN") or False,
                     location_id=user["LOCATION_ID"],
                     location_name=user["LOCATION_NAME"],
                     display_name=user["DISPLAY_NAME"],
@@ -95,7 +97,7 @@ async def get_current_user(
 
         # Look up the user in our USERS table by email
         user = db.execute_one("""
-            SELECT u.USER_ID, u.EMAIL, u.IS_MANAGER, CAST(u.LOCATION_ID AS VARCHAR) AS LOCATION_ID,
+            SELECT u.USER_ID, u.EMAIL, u.IS_MANAGER, u.IS_ADMIN, CAST(u.LOCATION_ID AS VARCHAR) AS LOCATION_ID,
                    u.DISPLAY_NAME, l.LOCATION_NAME
             FROM USERS u
             JOIN LOCATIONS l ON u.LOCATION_ID = l.LOCATION_ID
@@ -112,6 +114,7 @@ async def get_current_user(
             user_id=user["USER_ID"],
             email=user["EMAIL"],
             is_manager=user["IS_MANAGER"],
+            is_admin=user.get("IS_ADMIN") or False,
             location_id=user["LOCATION_ID"],
             location_name=user["LOCATION_NAME"],
             display_name=user["DISPLAY_NAME"],
@@ -123,7 +126,7 @@ async def get_current_user(
 
 
 def require_manager(user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
-    """Dependency that ensures the user is a manager."""
-    if not user.is_manager:
+    """Dependency that ensures the user is a manager or admin."""
+    if not user.is_manager and not user.is_admin:
         raise HTTPException(status_code=403, detail="Manager access required")
     return user

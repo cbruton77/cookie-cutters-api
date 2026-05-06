@@ -2,14 +2,56 @@ const {useState,useEffect,useCallback} = React;
 
 // ═══ CONFIG ═══
 const API = window.location.origin;
-const DEV_USER = new URLSearchParams(window.location.search).get("user") || "1530002";
-// EDITORS list removed — admin access now driven by IS_ADMIN flag on user
+const DEV_USER = new URLSearchParams(window.location.search).get("user") || null;
+const SUPABASE_URL = "https://cekiibugdwrmqcshbicu.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNla2lpYnVnZHdybXFjc2hiaWN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NzgwNDAsImV4cCI6MjA5MzA1NDA0MH0.3wvtLWV7aJgTwa7iJ-J6ljCNCThZal4p78ISu0y1CRo";
+
+// Token storage
+const getToken = () => {
+  try { return JSON.parse(localStorage.getItem("cc_session"))?.access_token || null; } catch { return null; }
+};
+const setSession = s => localStorage.setItem("cc_session", JSON.stringify(s));
+const clearSession = () => localStorage.removeItem("cc_session");
+
+// Supabase auth calls
+const supabaseLogin = async (email, password) => {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: {"Content-Type":"application/json","apikey":SUPABASE_ANON_KEY},
+    body: JSON.stringify({email, password})
+  });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error_description || data.msg || "Login failed");
+  return data;
+};
+
+const supabaseRefresh = async (refresh_token) => {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: {"Content-Type":"application/json","apikey":SUPABASE_ANON_KEY},
+    body: JSON.stringify({refresh_token})
+  });
+  const data = await r.json();
+  if (!r.ok) return null;
+  return data;
+};
 
 // ═══ API ═══
 const apiFetch = async (path, opts={}) => {
-  const r = await fetch(`${API}${path}${path.includes("?")?"&":"?"}dev_user_id=${DEV_USER}`, {
-    headers: {"Content-Type":"application/json","x-dev-user-id":DEV_USER,...opts.headers}, ...opts
-  });
+  const headers = {"Content-Type":"application/json", ...opts.headers};
+  // Dev bypass via ?user= URL param
+  if (DEV_USER) {
+    headers["x-dev-user-id"] = DEV_USER;
+    const sep = path.includes("?") ? "&" : "?";
+    const r = await fetch(`${API}${path}${sep}dev_user_id=${DEV_USER}`, {...opts, headers});
+    if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.detail||r.statusText); }
+    return r.json();
+  }
+  // Production: use JWT token
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const r = await fetch(`${API}${path}`, {...opts, headers});
+  if (r.status === 401) { clearSession(); window.location.reload(); return; }
   if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.detail||r.statusText); }
   return r.json();
 };
@@ -439,7 +481,57 @@ function AdminView({tpls,rules,bh,ann,closed,locs,fetchAll,tt}) {
 // ══════════════════════════════════
 //  MAIN APP COMPONENT
 // ══════════════════════════════════
+// ═══ LOGIN SCREEN ═══
+function LoginScreen({onLogin}) {
+  const[email,setEmail]=useState("");
+  const[password,setPassword]=useState("");
+  const[loading,setLoading]=useState(false);
+  const[error,setError]=useState("");
+
+  const login = async () => {
+    if(!email.trim()||!password.trim()){setError("Enter your email and password");return;}
+    setLoading(true);setError("");
+    try {
+      const session = await supabaseLogin(email.trim(), password);
+      setSession(session);
+      onLogin(session.access_token);
+    } catch(e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onKey = e => { if(e.key==="Enter") login(); };
+
+  return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#f8f9fb",padding:24}}>
+    <div style={{background:"#fff",borderRadius:16,padding:32,width:"100%",maxWidth:360,boxShadow:"0 4px 24px rgba(0,0,0,.08)"}}>
+      <div style={{textAlign:"center",marginBottom:28}}>
+        <div style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:2,marginBottom:6}}>Cookie Cutters</div>
+        <div style={{fontSize:22,fontWeight:700,color:"#111"}}>Staff Scheduling</div>
+        <div style={{fontSize:13,color:"#9ca3af",marginTop:6}}>Sign in to your account</div>
+      </div>
+      {error&&<div style={{background:"#fee2e2",color:"#991b1b",padding:"10px 14px",borderRadius:8,fontSize:13,marginBottom:16,fontWeight:500}}>{error}</div>}
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:11,fontWeight:600,color:"#6b7280",marginBottom:4,textTransform:"uppercase"}}>Email</div>
+        <input type="email" style={{...SI,fontSize:15}} placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={onKey} autoFocus/>
+      </div>
+      <div style={{marginBottom:24}}>
+        <div style={{fontSize:11,fontWeight:600,color:"#6b7280",marginBottom:4,textTransform:"uppercase"}}>Password</div>
+        <input type="password" style={{...SI,fontSize:15}} placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={onKey}/>
+      </div>
+      <button onClick={login} disabled={loading} style={{...BTN,width:"100%",padding:"13px",fontSize:15,opacity:loading?.7:1}}>
+        {loading?"Signing in...":"Sign In"}
+      </button>
+      <div style={{textAlign:"center",marginTop:16,fontSize:12,color:"#9ca3af"}}>
+        Contact your manager if you need access
+      </div>
+    </div>
+  </div>;
+}
+
 function App() {
+  const[token,setToken]=useState(()=>DEV_USER?null:getToken());
   const[view,setView]=useState("schedule");
   const[sv,setSv]=useState("calendar");
   const[ws,setWs]=useState(mondayOf(new Date()));
@@ -512,6 +604,9 @@ function App() {
   // Weekly hours
   const wh={};let th=0;vU.forEach(u=>{let h=0;days.forEach(d=>{const s=gs(u.user_id,d);if(s)h+=pT(s.end)-pT(s.start)});wh[u.user_id]=h;th+=h});
 
+  // Show login screen if no token and not using dev bypass
+  if(!DEV_USER && !token) return <LoginScreen onLogin={t=>{setToken(t);}}/>;
+
   if(loading||!me) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}><div style={{textAlign:"center"}}><div style={{fontSize:18,fontWeight:700,color:"#111"}}>Cookie Cutters</div><div style={{color:"#999",fontSize:14,marginTop:4}}>Loading...</div></div></div>;
 
   const canAdmin=canE||isM;
@@ -527,7 +622,10 @@ function App() {
         <div style={{fontSize:10,fontWeight:600,color:"#9ca3af",textTransform:"uppercase",letterSpacing:1}}>Cookie Cutters</div>
         <div style={{fontSize:15,fontWeight:700,color:"#111"}}>{me.display_name} {isM&&<span style={{fontSize:10,background:"#dbeafe",color:"#1e40af",padding:"2px 6px",borderRadius:4,marginLeft:4,fontWeight:600}}>MGR</span>}{canE&&!isM&&<span style={{fontSize:10,background:"#f3e8ff",color:"#7c3aed",padding:"2px 6px",borderRadius:4,marginLeft:4,fontWeight:600}}>ADMIN</span>}</div>
       </div>
-      {isM&&<select value={loc} onChange={e=>setLoc(e.target.value)} style={{padding:"6px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:13,fontWeight:500,color:"#374151",background:"#fff"}}><option value="All">All Locations</option>{locs.map(l=><option key={l.id} value={l.name}>{l.name}</option>)}</select>}
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        {isM&&<select value={loc} onChange={e=>setLoc(e.target.value)} style={{padding:"6px 10px",borderRadius:6,border:"1px solid #d1d5db",fontSize:13,fontWeight:500,color:"#374151",background:"#fff"}}><option value="All">All Locations</option>{locs.map(l=><option key={l.id} value={l.name}>{l.name}</option>)}</select>}
+        {!DEV_USER&&<button onClick={()=>{clearSession();setToken(null);}} style={{padding:"6px 12px",borderRadius:6,border:"1px solid #e5e7eb",background:"#fff",fontSize:12,color:"#6b7280",cursor:"pointer"}}>Sign Out</button>}
+      </div>
     </div>
 
     <div style={{padding:"0 16px 100px"}}>
