@@ -34,5 +34,6 @@ class UserOut(BaseModel):
     location_id: str
     location_name: str
     is_manager: bool
+    is_admin: bool = False
     positions: list[str]
     is_active: bool
