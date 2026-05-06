@@ -51,7 +51,7 @@ const apiFetch = async (path, opts={}) => {
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
   const r = await fetch(`${API}${path}`, {...opts, headers});
-  if (r.status === 401) { clearSession(); window.location.reload(); return; }
+  if (r.status === 401) { clearSession(); return null; }
   if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.detail||r.statusText); }
   return r.json();
 };
@@ -591,7 +591,7 @@ function App() {
   },[ws]);
 
   useEffect(()=>{if(!DEV_USER&&!token){setLoading(false);return;}(async()=>{setLoading(true);await fetchAll();setLoading(false)})();},[token]);
-  useEffect(()=>{fetchShifts()},[ws]);
+  useEffect(()=>{if(!DEV_USER&&!token)return;fetchShifts();},[ws,token]);
 
   // Actions
   const saveShift=async(uid,dateStr,data,locId)=>{const pm={Stylist:1,Receptionist:2};const ex=shifts[`${uid}-${dateStr}`];try{if(ex?.shift_id)await apiFetch(`/api/scheduling/shifts/${ex.shift_id}`,{method:"PUT",body:JSON.stringify({start_time:to24(data.start),end_time:to24(data.end),position_id:pm[data.role]||1})});else await apiFetch("/api/scheduling/shifts",{method:"POST",body:JSON.stringify({user_id:uid,location_id:locId,shift_date:dateStr,start_time:to24(data.start),end_time:to24(data.end),position_id:pm[data.role]||1})});setModal(null);await fetchShifts();tt("Saved")}catch(e){tt(e.message)}};
