@@ -590,7 +590,7 @@ function App() {
     }catch(e){console.error(e)}
   },[ws]);
 
-  useEffect(()=>{(async()=>{setLoading(true);await fetchAll();setLoading(false)})()},[]);
+  useEffect(()=>{if(!DEV_USER&&!token){setLoading(false);return;}(async()=>{setLoading(true);await fetchAll();setLoading(false)})();},[token]);
   useEffect(()=>{fetchShifts()},[ws]);
 
   // Actions
