@@ -21,7 +21,7 @@ async def list_users(
     query = """
         SELECT u.USER_ID, u.FIRST_NAME, u.LAST_NAME, u.DISPLAY_NAME,
                u.EMAIL, u.AVATAR_INITIALS, CAST(u.LOCATION_ID AS VARCHAR) AS LOCATION_ID, l.LOCATION_NAME,
-               u.IS_MANAGER, u.IS_ACTIVE,
+               u.IS_MANAGER, u.IS_ADMIN, u.IS_ACTIVE,
                LISTAGG(p.POSITION_NAME, ',') WITHIN GROUP (ORDER BY p.POSITION_NAME) AS POSITIONS
         FROM USERS u
         JOIN LOCATIONS l ON u.LOCATION_ID = l.LOCATION_ID
@@ -34,7 +34,7 @@ async def list_users(
         query += " AND u.LOCATION_ID = %s"
         params.append(effective_location)
 
-    query += " GROUP BY u.USER_ID, u.FIRST_NAME, u.LAST_NAME, u.DISPLAY_NAME, u.EMAIL, u.AVATAR_INITIALS, u.LOCATION_ID, l.LOCATION_NAME, u.IS_MANAGER, u.IS_ACTIVE"
+    query += " GROUP BY u.USER_ID, u.FIRST_NAME, u.LAST_NAME, u.DISPLAY_NAME, u.EMAIL, u.AVATAR_INITIALS, u.LOCATION_ID, l.LOCATION_NAME, u.IS_MANAGER, u.IS_ADMIN, u.IS_ACTIVE"
     query += " ORDER BY u.DISPLAY_NAME"
 
     rows = db.execute_all(query, params)
@@ -49,6 +49,7 @@ async def list_users(
             location_id=r["LOCATION_ID"],
             location_name=r["LOCATION_NAME"],
             is_manager=r["IS_MANAGER"],
+            is_admin=r.get("IS_ADMIN") or False,
             positions=r["POSITIONS"].split(",") if r.get("POSITIONS") else [],
             is_active=r["IS_ACTIVE"],
         )
