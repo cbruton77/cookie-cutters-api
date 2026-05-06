@@ -301,28 +301,137 @@ function PeopleView({users,locs,fetchAll,tt}) {
 }
 
 // ═══ ADMIN VIEW ═══
-function AdminView({tpls,rules,bh}) {
+function AdminView({tpls,rules,bh,ann,closed,locs,fetchAll,tt}) {
+  const[adminTab,setAdminTab]=useState("templates");
+  const[tplForm,setTplForm]=useState(null);
+  const[tplF,setTplF]=useState({template_name:"",start:"9:50a",end:"6:00p"});
+  const[tplDel,setTplDel]=useState(null);
+  const saveTpl=async()=>{if(!tplF.template_name.trim()){tt("Enter a template name");return;}const st=to24(tplF.start),et=to24(tplF.end);if(pT(tplF.end)<=pT(tplF.start)){tt("End must be after start");return;}try{if(tplForm?.template_id){await apiFetch(`/api/scheduling/templates/${tplForm.template_id}`,{method:"PUT",body:JSON.stringify({template_name:tplF.template_name,start_time:st,end_time:et})});}else{await apiFetch("/api/scheduling/templates",{method:"POST",body:JSON.stringify({template_name:tplF.template_name,start_time:st,end_time:et,location_id:null})});}await fetchAll();setTplForm(null);tt("Saved");}catch(e){tt(e.message);}};
+  const delTpl=async id=>{try{await apiFetch(`/api/scheduling/templates/${id}`,{method:"DELETE"});await fetchAll();setTplDel(null);tt("Removed");}catch(e){tt(e.message);}};
+  const openEditTpl=t=>{setTplF({template_name:t.template_name,start:apiTime(t.start_time),end:apiTime(t.end_time)});setTplForm(t);};
+  const openNewTpl=()=>{setTplF({template_name:"",start:"9:50a",end:"6:00p"});setTplForm({});};
+  const[ruleForm,setRuleForm]=useState(null);
+  const[ruleF,setRuleF]=useState({rule_name:"",rule_description:"",rule_type:"GENERAL",param_1:"",param_2:"",user_id:""});
+  const[ruleDel,setRuleDel]=useState(null);
+  const RULE_TYPES=["GENERAL","MAX_HOURS","MIN_HOURS","CONSECUTIVE_DAYS","DAY_OFF","AVAILABILITY","STAFFING"];
+  const saveRule=async()=>{if(!ruleF.rule_name.trim()){tt("Enter a rule name");return;}try{if(ruleForm?.RULE_ID){await apiFetch(`/api/scheduling/admin/scheduling-rules/${ruleForm.RULE_ID}`,{method:"PUT",body:JSON.stringify(ruleF)});}else{await apiFetch("/api/scheduling/admin/scheduling-rules",{method:"POST",body:JSON.stringify(ruleF)});}await fetchAll();setRuleForm(null);tt("Saved");}catch(e){tt(e.message);}};
+  const delRule=async id=>{try{await apiFetch(`/api/scheduling/admin/scheduling-rules/${id}`,{method:"DELETE"});await fetchAll();setRuleDel(null);tt("Removed");}catch(e){tt(e.message);}};
+  const openEditRule=r=>{setRuleF({rule_name:r.RULE_NAME,rule_description:r.RULE_DESCRIPTION||"",rule_type:r.RULE_TYPE||"GENERAL",param_1:r.PARAM_1||"",param_2:r.PARAM_2||"",user_id:r.USER_ID||""});setRuleForm(r);};
+  const[annForm,setAnnForm]=useState(false);
+  const[annF,setAnnF]=useState({title:"",body:""});
+  const[annDel,setAnnDel]=useState(null);
+  const saveAnn=async()=>{if(!annF.title.trim()||!annF.body.trim()){tt("Fill in title and message");return;}try{await apiFetch("/api/scheduling/admin/announcements",{method:"POST",body:JSON.stringify(annF)});await fetchAll();setAnnForm(false);setAnnF({title:"",body:""});tt("Posted");}catch(e){tt(e.message);}};
+  const delAnn=async id=>{try{await apiFetch(`/api/scheduling/admin/announcements/${id}`,{method:"DELETE"});await fetchAll();setAnnDel(null);tt("Removed");}catch(e){tt(e.message);}};
+  const[bhEdit,setBhEdit]=useState(null);
+  const[bhF,setBhF]=useState({open_time:"",close_time:"",is_open:true});
+  const openEditBh=h=>{setBhF({open_time:h.OPEN_TIME||"",close_time:h.CLOSE_TIME||"",is_open:h.IS_OPEN});setBhEdit(h.HOURS_ID);};
+  const saveBh=async()=>{try{await apiFetch(`/api/scheduling/admin/business-hours/${bhEdit}`,{method:"PUT",body:JSON.stringify(bhF)});await fetchAll();setBhEdit(null);tt("Saved");}catch(e){tt(e.message);}};
+  const ATABS=[{id:"templates",l:"Schedule Templates"},{id:"rules",l:"Rules"},{id:"announcements",l:"Announcements"},{id:"hours",l:"Business Hours"}];
+  const formCard=children=><div style={{...CD,borderColor:"#3b82f6",background:"#f0f7ff",marginBottom:16}}>{children}</div>;
+  const label=txt=><div style={{fontSize:11,fontWeight:600,color:"#6b7280",marginBottom:4,textTransform:"uppercase"}}>{txt}</div>;
+  const editBtn=onClick=><button onClick={onClick} style={{...IB,marginLeft:4}}>✎</button>;
+  const delBtn=onClick=><button onClick={onClick} style={{...IB,color:"#dc2626",marginLeft:4}}>✕</button>;
+  const cancelBtn=onClick=><button onClick={onClick} style={{...BTN,background:"#f3f4f6",color:"#374151"}}>Cancel</button>;
+  const saveBtn=onClick=><button onClick={onClick} style={{...BTN,flex:1}}>Save</button>;
   return <div style={{paddingTop:16}}>
-    <h2 style={{fontSize:18,fontWeight:700,color:"#111",marginBottom:16}}>Admin</h2>
-    <h3 style={SH}>Templates</h3>
-    {tpls.map(t=><div key={t.template_id} style={{...CD,display:"flex",justifyContent:"space-between"}}>
-      <div><div style={{fontWeight:600,fontSize:14,color:"#111"}}>{t.template_name}</div><div style={{fontSize:13,color:"#6b7280"}}>{apiTime(t.start_time)} – {apiTime(t.end_time)}</div></div>
-    </div>)}
-    <h3 style={{...SH,marginTop:20}}>Rules</h3>
-    {rules.map(r=><div key={r.RULE_ID} style={{...CD,borderLeft:"3px solid #3b82f6"}}>
-      <div style={{fontWeight:600,fontSize:14,color:"#111"}}>{r.RULE_NAME}</div>
-      {r.RULE_DESCRIPTION&&<div style={{fontSize:13,color:"#6b7280",marginTop:2}}>{r.RULE_DESCRIPTION}</div>}
-      <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>{r.RULE_TYPE}{r.PARAM_1?` · ${r.PARAM_1}`:""}{r.USER_NAME?` · ${r.USER_NAME}`:""}</div>
-    </div>)}
-    <h3 style={{...SH,marginTop:20}}>Business Hours</h3>
-    {[...new Set(bh.map(h=>h.LOCATION_NAME))].map(l=><div key={l} style={CD}>
-      <div style={{fontWeight:600,fontSize:14,color:"#111",marginBottom:8}}>{l}</div>
-      {bh.filter(h=>h.LOCATION_NAME===l).sort((a,b)=>a.DAY_OF_WEEK-b.DAY_OF_WEEK).map(h=>
-        <div key={h.HOURS_ID} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid #f3f4f6",fontSize:13}}>
-          <span>{h.DAY_NAME}</span><span style={{color:"#6b7280"}}>{h.IS_OPEN?`${h.OPEN_TIME} – ${h.CLOSE_TIME}`:"Closed"}</span>
+    <h2 style={{fontSize:18,fontWeight:700,color:"#111",marginBottom:12}}>Admin</h2>
+    <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+      {ATABS.map(t=><button key={t.id} onClick={()=>setAdminTab(t.id)} style={{padding:"6px 12px",borderRadius:6,fontSize:12,fontWeight:600,border:`1px solid ${adminTab===t.id?"#3b82f6":"#e5e7eb"}`,background:adminTab===t.id?"#3b82f6":"#fff",color:adminTab===t.id?"#fff":"#6b7280",cursor:"pointer"}}>{t.l}</button>)}
+    </div>
+    {adminTab==="templates"&&<div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <h3 style={{...SH,margin:0}}>Schedule Templates</h3>
+        <button onClick={openNewTpl} style={{...BTN,padding:"7px 14px",fontSize:13}}>+ Add</button>
+      </div>
+      {tplForm!==null&&formCard(<>
+        {label("Template Name")}
+        <input style={{...SI,marginBottom:10}} placeholder="e.g. Full Day" value={tplF.template_name} onChange={e=>setTplF({...tplF,template_name:e.target.value})}/>
+        <div style={{display:"flex",gap:12,marginBottom:12}}>
+          <div style={{flex:1}}>{label("Start")}<select style={SI} value={tplF.start} onChange={e=>setTplF({...tplF,start:e.target.value})}>{TOPTS.map(t=><option key={t}>{t}</option>)}</select></div>
+          <div style={{flex:1}}>{label("End")}<select style={SI} value={tplF.end} onChange={e=>setTplF({...tplF,end:e.target.value})}>{TOPTS.map(t=><option key={t}>{t}</option>)}</select></div>
         </div>
-      )}
-    </div>)}
+        {pT(tplF.end)>pT(tplF.start)&&<div style={{background:"#f0fdf4",borderRadius:6,padding:8,textAlign:"center",fontSize:13,color:"#166534",fontWeight:500,marginBottom:12}}>{tplF.start} – {tplF.end} · {fmtH(pT(tplF.end)-pT(tplF.start))}</div>}
+        <div style={{display:"flex",gap:8}}>{saveBtn(saveTpl)}{cancelBtn(()=>setTplForm(null))}</div>
+      </>)}
+      {tpls.map(t=><div key={t.template_id} style={CD}>
+        {tplDel===t.template_id
+          ?<div><div style={{fontWeight:600,color:"#dc2626",marginBottom:8,fontSize:14}}>Delete "{t.template_name}"?</div><div style={{display:"flex",gap:6}}><button onClick={()=>delTpl(t.template_id)} style={{...BTN,fontSize:12,padding:"6px 12px",background:"#fee2e2",color:"#991b1b"}}>Delete</button><button onClick={()=>setTplDel(null)} style={{...BTN,fontSize:12,padding:"6px 12px",background:"#f3f4f6",color:"#374151"}}>Cancel</button></div></div>
+          :<div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div><div style={{fontWeight:600,fontSize:14,color:"#111"}}>{t.template_name}</div><div style={{fontSize:13,color:"#6b7280",marginTop:2}}>{apiTime(t.start_time)} – {apiTime(t.end_time)} · {fmtH(t.hours_scheduled)}</div></div>
+            <div style={{display:"flex"}}>{editBtn(()=>openEditTpl(t))}{delBtn(()=>setTplDel(t.template_id))}</div>
+          </div>}
+      </div>)}
+      {tpls.length===0&&!tplForm&&<div style={{textAlign:"center",padding:32,color:"#9ca3af"}}>No templates yet</div>}
+    </div>}
+    {adminTab==="rules"&&<div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <h3 style={{...SH,margin:0}}>Scheduling Rules</h3>
+        <button onClick={()=>{setRuleF({rule_name:"",rule_description:"",rule_type:"GENERAL",param_1:"",param_2:"",user_id:""});setRuleForm({});}} style={{...BTN,padding:"7px 14px",fontSize:13}}>+ Add</button>
+      </div>
+      {ruleForm!==null&&formCard(<>
+        {label("Rule Name")}<input style={{...SI,marginBottom:10}} placeholder="e.g. Max consecutive days" value={ruleF.rule_name} onChange={e=>setRuleF({...ruleF,rule_name:e.target.value})}/>
+        {label("Description")}<input style={{...SI,marginBottom:10}} placeholder="Optional description" value={ruleF.rule_description} onChange={e=>setRuleF({...ruleF,rule_description:e.target.value})}/>
+        <div style={{display:"flex",gap:10,marginBottom:10}}>
+          <div style={{flex:1}}>{label("Rule Type")}<select style={SI} value={ruleF.rule_type} onChange={e=>setRuleF({...ruleF,rule_type:e.target.value})}>{RULE_TYPES.map(r=><option key={r}>{r}</option>)}</select></div>
+          <div style={{flex:1}}>{label("Param 1")}<input style={SI} placeholder="e.g. 3" value={ruleF.param_1} onChange={e=>setRuleF({...ruleF,param_1:e.target.value})}/></div>
+        </div>
+        {label("Param 2")}<input style={{...SI,marginBottom:12}} placeholder="Optional" value={ruleF.param_2} onChange={e=>setRuleF({...ruleF,param_2:e.target.value})}/>
+        <div style={{display:"flex",gap:8}}>{saveBtn(saveRule)}{cancelBtn(()=>setRuleForm(null))}</div>
+      </>)}
+      {rules.map(r=><div key={r.RULE_ID} style={{...CD,borderLeft:"3px solid #3b82f6"}}>
+        {ruleDel===r.RULE_ID
+          ?<div><div style={{fontWeight:600,color:"#dc2626",marginBottom:8,fontSize:14}}>Delete "{r.RULE_NAME}"?</div><div style={{display:"flex",gap:6}}><button onClick={()=>delRule(r.RULE_ID)} style={{...BTN,fontSize:12,padding:"6px 12px",background:"#fee2e2",color:"#991b1b"}}>Delete</button><button onClick={()=>setRuleDel(null)} style={{...BTN,fontSize:12,padding:"6px 12px",background:"#f3f4f6",color:"#374151"}}>Cancel</button></div></div>
+          :<div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between"}}>
+            <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14,color:"#111"}}>{r.RULE_NAME}</div>{r.RULE_DESCRIPTION&&<div style={{fontSize:13,color:"#6b7280",marginTop:2}}>{r.RULE_DESCRIPTION}</div>}<div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>{r.RULE_TYPE}{r.PARAM_1?` · ${r.PARAM_1}`:""}{r.USER_NAME?` · ${r.USER_NAME}`:""}</div></div>
+            <div style={{display:"flex",flexShrink:0}}>{editBtn(()=>openEditRule(r))}{delBtn(()=>setRuleDel(r.RULE_ID))}</div>
+          </div>}
+      </div>)}
+      {rules.length===0&&!ruleForm&&<div style={{textAlign:"center",padding:32,color:"#9ca3af"}}>No rules defined</div>}
+    </div>}
+    {adminTab==="announcements"&&<div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <h3 style={{...SH,margin:0}}>Announcements</h3>
+        <button onClick={()=>setAnnForm(true)} style={{...BTN,padding:"7px 14px",fontSize:13}}>+ Post</button>
+      </div>
+      {annForm&&formCard(<>
+        {label("Title")}<input style={{...SI,marginBottom:10}} placeholder="Announcement title" value={annF.title} onChange={e=>setAnnF({...annF,title:e.target.value})}/>
+        {label("Message")}<textarea style={{...SI,marginBottom:12,resize:"vertical",minHeight:80}} placeholder="Message body..." value={annF.body} onChange={e=>setAnnF({...annF,body:e.target.value})}/>
+        <div style={{display:"flex",gap:8}}>{saveBtn(saveAnn)}{cancelBtn(()=>setAnnForm(false))}</div>
+      </>)}
+      {ann.map(a=><div key={a.announcement_id} style={{...CD,borderLeft:"3px solid #3b82f6"}}>
+        {annDel===a.announcement_id
+          ?<div><div style={{fontWeight:600,color:"#dc2626",marginBottom:8,fontSize:14}}>Remove "{a.title}"?</div><div style={{display:"flex",gap:6}}><button onClick={()=>delAnn(a.announcement_id)} style={{...BTN,fontSize:12,padding:"6px 12px",background:"#fee2e2",color:"#991b1b"}}>Remove</button><button onClick={()=>setAnnDel(null)} style={{...BTN,fontSize:12,padding:"6px 12px",background:"#f3f4f6",color:"#374151"}}>Cancel</button></div></div>
+          :<div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between"}}>
+            <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14,color:"#111"}}>{a.title}</div><div style={{fontSize:13,color:"#6b7280",marginTop:4}}>{a.body}</div></div>
+            {delBtn(()=>setAnnDel(a.announcement_id))}
+          </div>}
+      </div>)}
+      {ann.length===0&&!annForm&&<div style={{textAlign:"center",padding:32,color:"#9ca3af"}}>No active announcements</div>}
+    </div>}
+    {adminTab==="hours"&&<div>
+      <h3 style={{...SH,marginBottom:12}}>Business Hours</h3>
+      {[...new Set(bh.map(h=>h.LOCATION_NAME))].map(l=><div key={l} style={{...CD,marginBottom:16}}>
+        <div style={{fontWeight:600,fontSize:14,color:"#111",marginBottom:10}}>{l}</div>
+        {bh.filter(h=>h.LOCATION_NAME===l).sort((a,b)=>a.DAY_OF_WEEK-b.DAY_OF_WEEK).map(h=>
+          <div key={h.HOURS_ID}>
+            {bhEdit===h.HOURS_ID
+              ?<div style={{background:"#f0f7ff",borderRadius:8,padding:12,marginBottom:8}}>
+                <div style={{fontWeight:600,fontSize:13,color:"#374151",marginBottom:8}}>{h.DAY_NAME}</div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,cursor:"pointer"}}><input type="checkbox" checked={bhF.is_open} onChange={e=>setBhF({...bhF,is_open:e.target.checked})}/> Open</label></div>
+                {bhF.is_open&&<div style={{display:"flex",gap:10,marginBottom:10}}>
+                  <div style={{flex:1}}>{label("Open")}<input type="time" style={SI} value={bhF.open_time?.slice(0,5)||""} onChange={e=>setBhF({...bhF,open_time:e.target.value+":00"})}/></div>
+                  <div style={{flex:1}}>{label("Close")}<input type="time" style={SI} value={bhF.close_time?.slice(0,5)||""} onChange={e=>setBhF({...bhF,close_time:e.target.value+":00"})}/></div>
+                </div>}
+                <div style={{display:"flex",gap:8}}><button onClick={saveBh} style={{...BTN,flex:1,padding:"8px"}}>Save</button><button onClick={()=>setBhEdit(null)} style={{...BTN,background:"#f3f4f6",color:"#374151",padding:"8px 14px"}}>Cancel</button></div>
+              </div>
+              :<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #f3f4f6",fontSize:13}}>
+                <span style={{color:"#374151"}}>{h.DAY_NAME}</span>
+                <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{color:"#6b7280"}}>{h.IS_OPEN?`${h.OPEN_TIME} – ${h.CLOSE_TIME}`:"Closed"}</span>{editBtn(()=>openEditBh(h))}</div>
+              </div>}
+          </div>
+        )}
+      </div>)}
+    </div>}
     <div style={{textAlign:"center",padding:24,color:"#9ca3af",fontSize:12}}>Cookie Cutters · v2.0</div>
   </div>;
 }
