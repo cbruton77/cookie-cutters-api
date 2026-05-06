@@ -1,10 +1,29 @@
 {
-  "name": "Cookie Cutters Staff Schedule",
-  "short_name": "Cookie Cutters",
+  "name": "Cookie Cutters Staff Scheduling",
+  "short_name": "CC Schedule",
   "description": "Staff scheduling app for Cookie Cutters Haircuts for Kids",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FFF9F0",
-  "theme_color": "#F4511E",
-  "icons": []
+  "background_color": "#000000",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/static/icons/icon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
